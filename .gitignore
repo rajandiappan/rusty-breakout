@@ -25,8 +25,7 @@ Thumbs.db
 data/
 highscore.txt
 
-# Documentation (keep only README.md)
-BREAKOUT_PRD.md
+# Documentation (keep only README.md and BREAKOUT_PRD.md)
 BUILD_SUCCESS.md
 CODE_ARCHITECTURE.md
 COMPLETION_REPORT.md
