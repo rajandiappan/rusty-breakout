@@ -19,7 +19,7 @@ impl Game {
     pub fn start_menu(&mut self) {
         self.state.phase = GamePhase::MainMenu;
         self.state.score = 0;
-        self.state.lives = STARTING_LIVES;
+        self.state.lives = self.state.difficulty.starting_lives();
         self.state.level = 1;
     }
 
@@ -34,20 +34,23 @@ impl Game {
         self.state.powerups.clear();
         self.state.active_powerups.clear();
 
-        // Create initial ball
+        // Apply difficulty multiplier to ball speed
+        let speed_multiplier = self.state.difficulty.ball_speed_multiplier();
         let initial_ball = Ball {
             x: SCREEN_WIDTH / 2.0,
             y: PADDLE_Y - 30.0,
-            vx: 2.0,
-            vy: -4.0,
+            vx: 2.0 * speed_multiplier,
+            vy: -4.0 * speed_multiplier,
             radius: BALL_RADIUS,
             active: true,
         };
         self.state.balls = vec![initial_ball];
 
-        // Reset paddle
-        self.state.paddle.x = (SCREEN_WIDTH - PADDLE_WIDTH) / 2.0;
-        self.state.paddle.width = PADDLE_WIDTH;
+        // Reset paddle with difficulty-adjusted width
+        let paddle_width = PADDLE_WIDTH * self.state.difficulty.paddle_width_multiplier();
+        self.state.paddle.x = (SCREEN_WIDTH - paddle_width) / 2.0;
+        self.state.paddle.width = paddle_width;
+        self.state.paddle.normal_width = paddle_width;
         self.state.paddle.is_extended = false;
     }
 
@@ -77,6 +80,25 @@ impl Game {
     }
 
     fn update_playing(&mut self) {
+        // Handle pause toggle (P key)
+        if is_key_pressed(KeyCode::P) {
+            self.state.is_paused = !self.state.is_paused;
+        }
+
+        // Handle theme switching (T key)
+        if is_key_pressed(KeyCode::T) {
+            self.state.current_theme = self.state.current_theme.next();
+            self.state.theme_colors = crate::themes::get_theme_colors(self.state.current_theme);
+        }
+
+        // Update particle system regardless of pause
+        self.state.particle_system.update(1.0 / 60.0);
+
+        // Skip game updates if paused
+        if self.state.is_paused {
+            return;
+        }
+
         // Update paddle
         self.update_paddle();
 
@@ -180,7 +202,7 @@ impl Game {
         // Handle paddle extension timeout
         if !self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::PaddleExtend) {
             self.state.paddle.is_extended = false;
-            self.state.paddle.width = PADDLE_WIDTH;
+            self.state.paddle.width = self.state.paddle.normal_width;
         }
 
         self.state.powerups.retain(|p| p.active);
@@ -189,7 +211,14 @@ impl Game {
     fn check_collisions(&mut self) {
         // Check ball-paddle collisions
         for ball in &mut self.state.balls {
-            crate::physics::check_ball_paddle_collision(ball, &mut self.state.paddle);
+            if crate::physics::check_ball_paddle_collision(ball, &mut self.state.paddle) {
+                // Emit particles on paddle hit
+                self.state.particle_system.paddle_hit(
+                    ball.x,
+                    ball.y,
+                    self.state.theme_colors.paddle,
+                );
+            }
         }
 
         // Check ball-brick collisions
@@ -203,14 +232,30 @@ impl Game {
                     bricks_to_destroy.push(idx);
                     self.state.score += BRICK_POINTS;
 
-                    // Spawn power-up with simple deterministic chance
+                    // Emit particles on brick destruction
+                    self.state.particle_system.brick_destruction(
+                        brick.x + BRICK_WIDTH / 2.0,
+                        brick.y + BRICK_HEIGHT / 2.0,
+                        brick.color,
+                    );
+
+                    // Spawn power-up with difficulty-adjusted chance
+                    let spawn_chance = self.state.difficulty.powerup_spawn_chance();
                     let spawn_rand = ((self.state.frame_count as f32 * 12.347 + idx as f32 * 53.891) % 100.0) / 100.0;
-                    if spawn_rand < POWERUP_SPAWN_CHANCE {
+                    if spawn_rand < spawn_chance {
                         let power_type = match (self.state.frame_count + idx) % 3 {
                             0 => PowerUpType::MultiBall,
                             1 => PowerUpType::PaddleExtend,
                             _ => PowerUpType::SlowTime,
                         };
+                        
+                        // Emit particles for power-up spawn
+                        self.state.particle_system.power_up_spawn(
+                            brick.x + BRICK_WIDTH / 2.0,
+                            brick.y,
+                            self.state.theme_colors.accent,
+                        );
+                        
                         self.state.powerups.push(PowerUp {
                             x: brick.x + BRICK_WIDTH / 2.0,
                             y: brick.y,
@@ -235,6 +280,14 @@ impl Game {
             }
             if crate::physics::check_powerup_pickup(powerup, &self.state.paddle) {
                 powerup.active = false;
+                
+                // Emit particles for power-up pickup
+                self.state.particle_system.power_up_pickup(
+                    powerup.x,
+                    powerup.y,
+                    self.state.theme_colors.primary,
+                );
+                
                 powerups_to_apply.push(powerup.power_type);
             }
         }
@@ -260,20 +313,24 @@ impl Game {
                         self.state.balls.push(ball2);
                     }
                 }
+                self.state.achievements.increment_progress(crate::achievements::AchievementId::MultiBallMaster, 1);
             }
             PowerUpType::PaddleExtend => {
                 self.state.paddle.is_extended = true;
-                self.state.paddle.width = PADDLE_EXTENDED_WIDTH;
+                // Extended width is 1.5x the normal width for this difficulty
+                self.state.paddle.width = self.state.paddle.normal_width * 1.5;
                 self.state.active_powerups.push(crate::types::ActivePowerUp {
                     power_type,
                     remaining_frames: POWERUP_DURATION,
                 });
+                self.state.achievements.increment_progress(crate::achievements::AchievementId::PowerUpHoarder, 1);
             }
             PowerUpType::SlowTime => {
                 self.state.active_powerups.push(crate::types::ActivePowerUp {
                     power_type,
                     remaining_frames: POWERUP_DURATION,
                 });
+                self.state.achievements.increment_progress(crate::achievements::AchievementId::TimeBender, 1);
             }
         }
     }
@@ -285,6 +342,9 @@ impl Game {
             self.state.phase = GamePhase::LevelComplete;
             self.state.score += LEVEL_COMPLETE_BONUS;
             self.state.level_complete_timer = 120; // 2 seconds
+            
+            // Track level completion for speedrunner achievement
+            self.state.achievements.increment_progress(crate::achievements::AchievementId::Speedrunner, 1);
         }
 
         // Check if no balls left
@@ -304,6 +364,13 @@ impl Game {
             } else {
                 self.state.phase = GamePhase::Victory;
                 self.state.score += ALL_LEVELS_BONUS;
+                
+                // Check for PerfectClear (beat all levels without losing a life)
+                if self.state.lives == 3 {
+                    // Assuming we started with 3 lives
+                    self.state.achievements.unlock(crate::achievements::AchievementId::PerfectClear);
+                }
+                
                 if self.state.score > self.state.high_score {
                     self.state.high_score = self.state.score;
                 }

@@ -1,8 +1,11 @@
-use crate::constants::{GOLD as GOLD_COLOR, *};
+use crate::constants::*;
 use crate::types::{GameState, PowerUpType};
 use macroquad::prelude::*;
 
 pub fn render_game(state: &GameState) {
+    // Clear background with theme color
+    clear_background(state.theme_colors.background);
+
     // Render bricks
     for brick in &state.bricks {
         if brick.active {
@@ -13,7 +16,7 @@ pub fn render_game(state: &GameState) {
     // Render balls
     for ball in &state.balls {
         if ball.active {
-            draw_circle(ball.x, ball.y, ball.radius, CYAN);
+            draw_circle(ball.x, ball.y, ball.radius, state.theme_colors.ball);
         }
     }
 
@@ -23,16 +26,16 @@ pub fn render_game(state: &GameState) {
         state.paddle.y,
         state.paddle.width,
         state.paddle.height,
-        WHITE,
+        state.theme_colors.paddle,
     );
 
     // Render power-ups
     for powerup in &state.powerups {
         if powerup.active {
             let color = match powerup.power_type {
-                PowerUpType::MultiBall => GOLD_COLOR,
-                PowerUpType::PaddleExtend => GREEN,
-                PowerUpType::SlowTime => DARK_PURPLE,
+                PowerUpType::MultiBall => state.theme_colors.accent,
+                PowerUpType::PaddleExtend => state.theme_colors.primary,
+                PowerUpType::SlowTime => state.theme_colors.secondary,
             };
             draw_rectangle(
                 powerup.x - POWERUP_WIDTH / 2.0,
@@ -56,7 +59,7 @@ pub fn render_game(state: &GameState) {
                 POWERUP_WIDTH,
                 POWERUP_HEIGHT,
                 2.0,
-                WHITE,
+                state.theme_colors.text,
             );
 
             // Try to draw the Unicode symbol first, fallback to letter
@@ -67,14 +70,14 @@ pub fn render_game(state: &GameState) {
                 powerup.x - text_width / 2.0,
                 powerup.y + 13.0,
                 14.0,
-                WHITE,
+                state.theme_colors.text,
             );
         }
     }
 
     // Render HUD
     let hud_text = format!("Lives: {}", state.lives);
-    draw_text(&hud_text, 10.0, 20.0, 24.0, WHITE);
+    draw_text(&hud_text, 10.0, 20.0, 24.0, state.theme_colors.text);
 
     let score_text = format!("Score: {}", state.score);
     let score_width = measure_text(&score_text, None, 24, 1.0).width;
@@ -83,7 +86,7 @@ pub fn render_game(state: &GameState) {
         SCREEN_WIDTH / 2.0 - score_width / 2.0,
         20.0,
         24.0,
-        WHITE,
+        state.theme_colors.text,
     );
 
     let level_text = format!("Level: {}/{}", state.level, NUM_LEVELS);
@@ -93,7 +96,7 @@ pub fn render_game(state: &GameState) {
         SCREEN_WIDTH - level_width - 10.0,
         20.0,
         24.0,
-        WHITE,
+        state.theme_colors.text,
     );
 
     // Render active power-ups with symbols
@@ -105,18 +108,88 @@ pub fn render_game(state: &GameState) {
             PowerUpType::SlowTime => (POWERUP_SLOWTIME_SYMBOL, POWERUP_SLOWTIME_LABEL),
         };
         let color = match active.power_type {
-            PowerUpType::MultiBall => GOLD_COLOR,
-            PowerUpType::PaddleExtend => GREEN,
-            PowerUpType::SlowTime => DARK_PURPLE,
+            PowerUpType::MultiBall => state.theme_colors.accent,
+            PowerUpType::PaddleExtend => state.theme_colors.primary,
+            PowerUpType::SlowTime => state.theme_colors.secondary,
         };
 
         // Draw symbol and timer
         let text = format!("{} {}", symbol, active.remaining_frames);
         draw_text(&text, 10.0, powerup_y - (i as f32 * 25.0), 18.0, color);
     }
+
+    // Render pause overlay if paused
+    if state.is_paused {
+        render_pause_overlay(state);
+    }
+
+    // Render particle effects
+    state.particle_system.render();
+}
+
+pub fn render_pause_overlay(state: &GameState) {
+    // Semi-transparent overlay
+    draw_rectangle(
+        0.0,
+        0.0,
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+        Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 0.5,
+        },
+    );
+
+    // Pause text
+    let pause_text = "PAUSED";
+    let pause_width = measure_text(pause_text, None, 48, 1.0).width;
+    draw_text(
+        pause_text,
+        SCREEN_WIDTH / 2.0 - pause_width / 2.0,
+        SCREEN_HEIGHT / 2.0 - 50.0,
+        48.0,
+        state.theme_colors.text,
+    );
+
+    // Theme info
+    let theme_text = format!("Theme: {}", state.current_theme.as_str());
+    let theme_width = measure_text(&theme_text, None, 20, 1.0).width;
+    draw_text(
+        &theme_text,
+        SCREEN_WIDTH / 2.0 - theme_width / 2.0,
+        SCREEN_HEIGHT / 2.0 + 20.0,
+        20.0,
+        state.theme_colors.primary,
+    );
+
+    // Instructions
+    let resume_text = "Press P to Resume";
+    let resume_width = measure_text(resume_text, None, 20, 1.0).width;
+    draw_text(
+        resume_text,
+        SCREEN_WIDTH / 2.0 - resume_width / 2.0,
+        SCREEN_HEIGHT / 2.0 + 60.0,
+        20.0,
+        state.theme_colors.text,
+    );
+
+    let theme_switch_text = "Press T to Change Theme";
+    let ts_width = measure_text(theme_switch_text, None, 20, 1.0).width;
+    draw_text(
+        theme_switch_text,
+        SCREEN_WIDTH / 2.0 - ts_width / 2.0,
+        SCREEN_HEIGHT / 2.0 + 85.0,
+        20.0,
+        state.theme_colors.text,
+    );
 }
 
 pub fn render_main_menu(state: &GameState) {
+    // Clear background with theme color
+    clear_background(state.theme_colors.background);
+
     let title = "BREAKOUT: CLASSIC REVIVAL";
     let title_width = measure_text(title, None, 48, 1.0).width;
     draw_text(
@@ -124,7 +197,7 @@ pub fn render_main_menu(state: &GameState) {
         SCREEN_WIDTH / 2.0 - title_width / 2.0,
         SCREEN_HEIGHT / 2.0 - 100.0,
         48.0,
-        WHITE,
+        state.theme_colors.primary,
     );
 
     let high_score_text = format!("High Score: {}", state.high_score);
@@ -134,7 +207,7 @@ pub fn render_main_menu(state: &GameState) {
         SCREEN_WIDTH / 2.0 - hs_width / 2.0,
         SCREEN_HEIGHT / 2.0 - 20.0,
         32.0,
-        WHITE,
+        state.theme_colors.text,
     );
 
     let play_text = "Press SPACE to Play";
@@ -144,7 +217,7 @@ pub fn render_main_menu(state: &GameState) {
         SCREEN_WIDTH / 2.0 - play_width / 2.0,
         SCREEN_HEIGHT / 2.0 + 50.0,
         28.0,
-        YELLOW,
+        state.theme_colors.accent,
     );
 
     let quit_text = "Press ESC to Quit";
@@ -154,7 +227,17 @@ pub fn render_main_menu(state: &GameState) {
         SCREEN_WIDTH / 2.0 - quit_width / 2.0,
         SCREEN_HEIGHT / 2.0 + 100.0,
         20.0,
-        WHITE,
+        state.theme_colors.text,
+    );
+
+    let theme_text = format!("Current Theme: {}", state.current_theme.as_str());
+    let theme_width = measure_text(&theme_text, None, 16, 1.0).width;
+    draw_text(
+        &theme_text,
+        SCREEN_WIDTH / 2.0 - theme_width / 2.0,
+        SCREEN_HEIGHT - 30.0,
+        16.0,
+        state.theme_colors.secondary,
     );
 }
 
@@ -166,7 +249,7 @@ pub fn render_level_complete(state: &GameState) {
         SCREEN_WIDTH / 2.0 - level_width / 2.0,
         SCREEN_HEIGHT / 2.0 - 50.0,
         40.0,
-        GREEN,
+        state.theme_colors.primary,
     );
 
     let score_text = format!("Score: {}", state.score);
@@ -176,11 +259,14 @@ pub fn render_level_complete(state: &GameState) {
         SCREEN_WIDTH / 2.0 - score_width / 2.0,
         SCREEN_HEIGHT / 2.0 + 20.0,
         32.0,
-        WHITE,
+        state.theme_colors.text,
     );
 }
 
 pub fn render_game_over(state: &GameState) {
+    // Clear background with theme color
+    clear_background(state.theme_colors.background);
+
     let game_over_text = "GAME OVER";
     let go_width = measure_text(game_over_text, None, 48, 1.0).width;
     draw_text(
@@ -188,7 +274,7 @@ pub fn render_game_over(state: &GameState) {
         SCREEN_WIDTH / 2.0 - go_width / 2.0,
         SCREEN_HEIGHT / 2.0 - 80.0,
         48.0,
-        RED,
+        state.theme_colors.accent,
     );
 
     let final_score_text = format!("Final Score: {}", state.score);
@@ -198,7 +284,7 @@ pub fn render_game_over(state: &GameState) {
         SCREEN_WIDTH / 2.0 - fs_width / 2.0,
         SCREEN_HEIGHT / 2.0 - 10.0,
         32.0,
-        WHITE,
+        state.theme_colors.text,
     );
 
     let high_score_text = format!("High Score: {}", state.high_score);
@@ -208,7 +294,7 @@ pub fn render_game_over(state: &GameState) {
         SCREEN_WIDTH / 2.0 - hs_width / 2.0,
         SCREEN_HEIGHT / 2.0 + 40.0,
         32.0,
-        WHITE,
+        state.theme_colors.text,
     );
 
     let restart_text = "Press SPACE to Play Again";
@@ -218,11 +304,14 @@ pub fn render_game_over(state: &GameState) {
         SCREEN_WIDTH / 2.0 - restart_width / 2.0,
         SCREEN_HEIGHT / 2.0 + 100.0,
         24.0,
-        YELLOW,
+        state.theme_colors.primary,
     );
 }
 
 pub fn render_victory(state: &GameState) {
+    // Clear background with theme color
+    clear_background(state.theme_colors.background);
+
     let victory_text = "VICTORY!";
     let victory_width = measure_text(victory_text, None, 48, 1.0).width;
     draw_text(
@@ -230,7 +319,7 @@ pub fn render_victory(state: &GameState) {
         SCREEN_WIDTH / 2.0 - victory_width / 2.0,
         SCREEN_HEIGHT / 2.0 - 80.0,
         48.0,
-        GREEN,
+        state.theme_colors.primary,
     );
 
     let final_score_text = format!("Final Score: {}", state.score);
@@ -240,7 +329,7 @@ pub fn render_victory(state: &GameState) {
         SCREEN_WIDTH / 2.0 - fs_width / 2.0,
         SCREEN_HEIGHT / 2.0 - 10.0,
         32.0,
-        WHITE,
+        state.theme_colors.text,
     );
 
     let high_score_text = format!("High Score: {}", state.high_score);
@@ -250,7 +339,7 @@ pub fn render_victory(state: &GameState) {
         SCREEN_WIDTH / 2.0 - hs_width / 2.0,
         SCREEN_HEIGHT / 2.0 + 40.0,
         32.0,
-        WHITE,
+        state.theme_colors.text,
     );
 
     let restart_text = "Press SPACE to Play Again";
@@ -260,6 +349,6 @@ pub fn render_victory(state: &GameState) {
         SCREEN_WIDTH / 2.0 - restart_width / 2.0,
         SCREEN_HEIGHT / 2.0 + 100.0,
         24.0,
-        YELLOW,
+        state.theme_colors.accent,
     );
 }

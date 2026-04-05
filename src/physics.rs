@@ -1,7 +1,7 @@
 use crate::constants::*;
-use crate::types::{Ball, Paddle, Brick, PowerUp};
+use crate::types::{Ball, Brick, Paddle, PowerUp};
 
-pub fn check_ball_paddle_collision(ball: &mut Ball, paddle: &Paddle) -> bool {
+pub fn check_ball_paddle_collision(ball: &mut Ball, paddle: &mut Paddle) -> bool {
     // Simple rectangle-circle collision detection
     let closest_x = ball.x.max(paddle.x).min(paddle.x + paddle.width);
     let closest_y = ball.y.max(paddle.y).min(paddle.y + paddle.height);

@@ -11,6 +11,7 @@ mod ui;
 mod settings;
 mod themes;
 mod achievements;
+mod effects;
 
 use macroquad::prelude::*;
 use game::Game;

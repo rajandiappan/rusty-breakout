@@ -1,4 +1,5 @@
 use crate::achievements::AchievementManager;
+use crate::effects::ParticleSystem;
 use crate::settings::{Difficulty, ThemeType};
 use crate::themes::ThemeColors;
 use macroquad::color::Color;
@@ -84,6 +85,7 @@ pub struct GameState {
     pub theme_colors: ThemeColors,
     pub achievements: AchievementManager,
     pub is_paused: bool,
+    pub particle_system: ParticleSystem,
 }
 
 impl GameState {
@@ -119,6 +121,7 @@ impl GameState {
             theme_colors,
             achievements: AchievementManager::new(),
             is_paused: false,
+            particle_system: ParticleSystem::new(),
         }
     }
 }
