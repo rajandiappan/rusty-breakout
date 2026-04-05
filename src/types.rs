@@ -1,3 +1,6 @@
+use crate::achievements::AchievementManager;
+use crate::settings::{Difficulty, ThemeType};
+use crate::themes::ThemeColors;
 use macroquad::color::Color;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -75,10 +78,21 @@ pub struct GameState {
     pub active_powerups: Vec<ActivePowerUp>,
     pub frame_count: usize,
     pub level_complete_timer: usize,
+    // Phase 2 additions
+    pub difficulty: Difficulty,
+    pub current_theme: ThemeType,
+    pub theme_colors: ThemeColors,
+    pub achievements: AchievementManager,
+    pub is_paused: bool,
 }
 
 impl GameState {
     pub fn new() -> Self {
+        use crate::themes::get_theme_colors;
+
+        let theme = ThemeType::Classic;
+        let theme_colors = get_theme_colors(theme);
+
         Self {
             level: 1,
             score: 0,
@@ -100,6 +114,11 @@ impl GameState {
             active_powerups: Vec::new(),
             frame_count: 0,
             level_complete_timer: 0,
+            difficulty: Difficulty::Normal,
+            current_theme: theme,
+            theme_colors,
+            achievements: AchievementManager::new(),
+            is_paused: false,
         }
     }
 }

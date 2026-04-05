@@ -8,6 +8,9 @@ mod powerup;
 mod physics;
 mod level;
 mod ui;
+mod settings;
+mod themes;
+mod achievements;
 
 use macroquad::prelude::*;
 use game::Game;
