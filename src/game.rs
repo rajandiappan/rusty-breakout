@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::types::{Ball, Paddle, Brick, PowerUp, PowerUpType, GameState, GamePhase};
+use crate::types::{Ball, PowerUp, PowerUpType, GameState, GamePhase};
 use crate::level;
 use macroquad::prelude::*;
 
@@ -203,9 +203,10 @@ impl Game {
                     bricks_to_destroy.push(idx);
                     self.state.score += BRICK_POINTS;
 
-                    // Spawn power-up
-                    if rand::random::<f32>() < POWERUP_SPAWN_CHANCE {
-                        let power_type = match rand::random::<u32>() % 3 {
+                    // Spawn power-up with simple deterministic chance
+                    let spawn_rand = ((self.state.frame_count as f32 * 12.347 + idx as f32 * 53.891) % 100.0) / 100.0;
+                    if spawn_rand < POWERUP_SPAWN_CHANCE {
+                        let power_type = match (self.state.frame_count + idx) % 3 {
                             0 => PowerUpType::MultiBall,
                             1 => PowerUpType::PaddleExtend,
                             _ => PowerUpType::SlowTime,
@@ -227,14 +228,19 @@ impl Game {
         }
 
         // Check power-up pickups
+        let mut powerups_to_apply = Vec::new();
         for powerup in &mut self.state.powerups {
             if !powerup.active {
                 continue;
             }
             if crate::physics::check_powerup_pickup(powerup, &self.state.paddle) {
                 powerup.active = false;
-                self.apply_powerup(powerup.power_type);
+                powerups_to_apply.push(powerup.power_type);
             }
+        }
+        
+        for power_type in powerups_to_apply {
+            self.apply_powerup(power_type);
         }
     }
 
