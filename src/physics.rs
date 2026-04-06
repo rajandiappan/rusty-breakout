@@ -1,45 +1,5 @@
 use crate::constants::*;
-use crate::types::{Ball, Brick, Paddle, PowerUp};
-
-pub fn check_ball_paddle_collision(ball: &mut Ball, paddle: &mut Paddle) -> bool {
-    // Simple rectangle-circle collision detection
-    let closest_x = ball.x.max(paddle.x).min(paddle.x + paddle.width);
-    let closest_y = ball.y.max(paddle.y).min(paddle.y + paddle.height);
-
-    let dx = ball.x - closest_x;
-    let dy = ball.y - closest_y;
-
-    let distance = (dx * dx + dy * dy).sqrt();
-
-    if distance < ball.radius {
-        // Collision detected
-        // Only bounce if coming from above
-        if ball.vy > 0.0 {
-            // Reverse vertical velocity
-            ball.vy = -ball.vy.abs();
-
-            // Calculate hit position for horizontal spin
-            let paddle_center = paddle.x + paddle.width / 2.0;
-            let hit_offset = (ball.x - paddle_center) / (paddle.width / 2.0);
-            let hit_offset = hit_offset.clamp(-1.0, 1.0);
-
-            // Apply spin
-            ball.vx = hit_offset * 2.5;
-
-            // Clamp total speed
-            let speed = (ball.vx * ball.vx + ball.vy * ball.vy).sqrt();
-            if speed > BALL_MAX_SPEED {
-                let scale = BALL_MAX_SPEED / speed;
-                ball.vx *= scale;
-                ball.vy *= scale;
-            }
-
-            return true;
-        }
-    }
-
-    false
-}
+use crate::types::{Ball, Brick, BrickType, Paddle, PowerUp, PowerUpType};
 
 pub fn check_ball_brick_collision(ball: &mut Ball, brick: &mut Brick) -> bool {
     if !brick.active {
@@ -56,17 +16,77 @@ pub fn check_ball_brick_collision(ball: &mut Ball, brick: &mut Brick) -> bool {
     let distance = (dx * dx + dy * dy).sqrt();
 
     if distance < ball.radius {
-        // Collision detected
-        brick.active = false;
+        // Collision detected - handle based on brick type
+        match brick.brick_type {
+            BrickType::Normal => {
+                brick.active = false;
+            }
+            BrickType::Frozen => {
+                // Apply slow effect to ball
+                ball.speed_multiplier = FROZEN_SPEED_REDUCTION;
+                ball.frozen_timer = FROZEN_DURATION;
+                brick.active = false;
+            }
+            BrickType::Exploding => {
+                brick.active = false;
+            }
+            BrickType::Steel => {
+                if brick.health > 0 {
+                    brick.health -= 1;
+                    if brick.health == 0 {
+                        brick.active = false;
+                    }
+                }
+            }
+            BrickType::Regenerating => {
+                brick.active = false;
+                brick.is_hit = true;
+                brick.regen_timer = REGENERATING_DURATION;
+            }
+        }
 
-        // Determine entry side
+        // Determine entry side and bounce
         if dx.abs() > dy.abs() {
-            // Horizontal entry
             ball.vx = -ball.vx;
         } else {
-            // Vertical entry
             ball.vy = -ball.vy;
         }
+
+        return true;
+    }
+
+    false
+}
+
+pub fn check_ball_paddle_collision(ball: &mut Ball, paddle: &Paddle) -> bool {
+    if !ball.active {
+        return false;
+    }
+
+    // Only check collision if ball is moving downward toward paddle
+    if ball.vy <= 0.0 {
+        return false;
+    }
+
+    // Closest point on paddle to ball center
+    let closest_x = ball.x.max(paddle.x).min(paddle.x + paddle.width);
+    let closest_y = ball.y.max(paddle.y).min(paddle.y + paddle.height);
+
+    let dx = ball.x - closest_x;
+    let dy = ball.y - closest_y;
+
+    let distance = (dx * dx + dy * dy).sqrt();
+
+    if distance < ball.radius {
+        // Calculate hit position (-1.0 = left edge, +1.0 = right edge)
+        let hit_pos = (ball.x - (paddle.x + paddle.width / 2.0)) / (paddle.width / 2.0);
+
+        // Reverse vertical velocity and apply angle variation
+        ball.vy = -ball.vy.abs();
+        ball.vx = hit_pos * 2.5;
+
+        // Clamp horizontal velocity to prevent excessive angles
+        ball.vx = ball.vx.clamp(-BALL_MAX_SPEED * 0.7, BALL_MAX_SPEED * 0.7);
 
         return true;
     }

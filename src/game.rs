@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::types::{Ball, PowerUp, PowerUpType, GameState, GamePhase};
+use crate::types::{Ball, PowerUp, PowerUpType, GameState, GamePhase, BrickType};
 use crate::level;
 use crate::settings::{GameSettings, Difficulty};
 use macroquad::prelude::*;
@@ -67,6 +67,8 @@ impl Game {
             radius: BALL_RADIUS,
             active: true,
             is_magnetized: false,
+            speed_multiplier: 1.0,
+            frozen_timer: 0,
         };
         self.state.balls = vec![initial_ball];
 
@@ -261,15 +263,21 @@ impl Game {
             }
 
             // Apply slow time power-up effect
-            let speed_multiplier = if self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::SlowTime) {
+            let mut slow_time_multiplier = if self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::SlowTime) {
                 0.5
             } else {
                 1.0
             };
 
+            // Apply frozen brick effect
+            if ball.frozen_timer > 0 {
+                ball.frozen_timer -= 1;
+                slow_time_multiplier *= FROZEN_SPEED_REDUCTION;
+            }
+
             // Update position
-            ball.x += ball.vx * speed_multiplier;
-            ball.y += ball.vy * speed_multiplier;
+            ball.x += ball.vx * slow_time_multiplier;
+            ball.y += ball.vy * slow_time_multiplier;
 
             // Wall collisions
             if ball.x <= BALL_RADIUS || ball.x >= SCREEN_WIDTH - BALL_RADIUS {
@@ -328,6 +336,8 @@ impl Game {
                     radius: BALL_RADIUS,
                     active: true,
                     is_magnetized: false,
+                    speed_multiplier: 1.0,
+                    frozen_timer: 0,
                 };
                 self.state.balls = vec![initial_ball];
             }
@@ -445,7 +455,47 @@ impl Game {
         }
 
         for idx in bricks_to_destroy {
+            let brick = &self.state.bricks[idx];
+            
+            // Handle Exploding brick chain reaction
+            if brick.brick_type == BrickType::Exploding {
+                let bx = brick.x + BRICK_WIDTH / 2.0;
+                let by = brick.y + BRICK_HEIGHT / 2.0;
+                
+                for (explode_idx, other_brick) in self.state.bricks.iter_mut().enumerate() {
+                    if !other_brick.active || explode_idx == idx {
+                        continue;
+                    }
+                    
+                    let ox = other_brick.x + BRICK_WIDTH / 2.0;
+                    let oy = other_brick.y + BRICK_HEIGHT / 2.0;
+                    let dist = ((bx - ox).powi(2) + (by - oy).powi(2)).sqrt();
+                    
+                    if dist < EXPLODING_RADIUS {
+                        other_brick.active = false;
+                        self.state.score += BRICK_POINTS;
+                        
+                        self.state.particle_system.brick_destruction(
+                            ox, oy, other_brick.color,
+                        );
+                    }
+                }
+            }
+            
             self.state.bricks[idx].active = false;
+        }
+        
+        // Update Regenerating bricks (respawn after delay)
+        for brick in &mut self.state.bricks {
+            if !brick.active && brick.brick_type == BrickType::Regenerating {
+                if brick.regen_timer > 0 {
+                    brick.regen_timer -= 1;
+                    if brick.regen_timer == 0 {
+                        brick.active = true;
+                        brick.is_hit = false;
+                    }
+                }
+            }
         }
 
         // Check power-up pickups

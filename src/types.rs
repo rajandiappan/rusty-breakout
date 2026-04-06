@@ -28,6 +28,15 @@ pub enum PowerUpType {
     PaddleShrink, // ◈ Red/Dark: Shrink paddle to 60px (60% of normal)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum BrickType {
+    Normal,
+    Frozen,       // Slows ball on hit (40% reduction, 120 frames)
+    Exploding,    // Chain destruction (80px radius)
+    Steel,        // Multi-hit (3 hits to destroy)
+    Regenerating, // Respawns after delay (300 frames)
+}
+
 #[derive(Clone, Debug)]
 pub struct Ball {
     pub x: f32,
@@ -37,6 +46,9 @@ pub struct Ball {
     pub radius: f32,
     pub active: bool,
     pub is_magnetized: bool, // [NEW] Stuck to paddle via Magnetize
+    // Phase 5: Frozen brick effect
+    pub speed_multiplier: f32, // 0.6 = 40% speed reduction
+    pub frozen_timer: u32,     // Duration of slow effect
 }
 
 #[derive(Clone, Debug)]
@@ -62,6 +74,11 @@ pub struct Brick {
     pub height: f32,
     pub active: bool,
     pub color: Color,
+    // Phase 5: Advanced brick types
+    pub brick_type: BrickType,
+    pub health: u8,       // For Steel bricks (0-3)
+    pub regen_timer: u32, // For Regenerating bricks (300 frames)
+    pub is_hit: bool,     // For Regenerating combo tracking
 }
 
 #[derive(Clone, Debug)]

@@ -27,9 +27,16 @@ pub const BRICK_SPACING: f32 = 8.0;
 pub const BRICK_POINTS: u32 = 10;
 
 // Level constants
-pub const NUM_LEVELS: usize = 5;
+pub const NUM_LEVELS: usize = 10;
 pub const LEVEL_COMPLETE_BONUS: u32 = 1000;
 pub const ALL_LEVELS_BONUS: u32 = 5000;
+
+// [NEW] Phase 5: Advanced brick type constants
+pub const FROZEN_SPEED_REDUCTION: f32 = 0.6; // 40% speed reduction
+pub const FROZEN_DURATION: u32 = 120; // 120 frames (2 seconds)
+pub const EXPLODING_RADIUS: f32 = 80.0; // Chain reaction radius in pixels
+pub const STEEL_BRICK_HEALTH: u8 = 3; // Hits required to destroy
+pub const REGENERATING_DURATION: u32 = 300; // 300 frames (5 seconds)
 
 // Power-up constants
 pub const POWERUP_WIDTH: f32 = 20.0;

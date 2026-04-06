@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::types::{GameState, PowerUpType};
+use crate::types::{BrickType, GameState, PowerUpType};
 use macroquad::prelude::*;
 
 pub fn render_game(state: &GameState) {
@@ -9,7 +9,61 @@ pub fn render_game(state: &GameState) {
     // Render bricks
     for brick in &state.bricks {
         if brick.active {
-            draw_rectangle(brick.x, brick.y, brick.width, brick.height, brick.color);
+            let mut render_color = brick.color;
+
+            // Apply visual effects based on brick type
+            match brick.brick_type {
+                BrickType::Steel => {
+                    // Darken based on remaining health
+                    let health_factor = brick.health as f32 / 3.0;
+                    render_color = Color {
+                        r: render_color.r * (0.5 + health_factor * 0.5),
+                        g: render_color.g * (0.5 + health_factor * 0.5),
+                        b: render_color.b * (0.5 + health_factor * 0.5),
+                        a: render_color.a,
+                    };
+                }
+                BrickType::Frozen => {
+                    render_color.a = 0.7; // Translucent
+                }
+                BrickType::Regenerating => {
+                    render_color.a = 0.8; // Semi-transparent
+                }
+                _ => {}
+            }
+
+            draw_rectangle(brick.x, brick.y, brick.width, brick.height, render_color);
+
+            // Add visual indicator for special bricks
+            match brick.brick_type {
+                BrickType::Exploding => {
+                    // Pulsing effect handled by color already (orange-red)
+                }
+                BrickType::Steel => {
+                    // Draw rivets or damage lines
+                    if brick.health < 3 {
+                        let damage_color = Color {
+                            r: 0.3,
+                            g: 0.3,
+                            b: 0.3,
+                            a: 1.0,
+                        };
+                        let lines = 3 - brick.health;
+                        for i in 0..lines {
+                            let y_offset = brick.height * (i as f32 + 1.0) / (lines as f32 + 1.0);
+                            draw_line(
+                                brick.x + 5.0,
+                                brick.y + y_offset,
+                                brick.x + brick.width - 5.0,
+                                brick.y + y_offset,
+                                2.0,
+                                damage_color,
+                            );
+                        }
+                    }
+                }
+                _ => {}
+            }
         }
     }
 
