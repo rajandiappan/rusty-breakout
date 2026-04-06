@@ -396,3 +396,136 @@ fn create_chaos(bricks: &mut Vec<Brick>) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_level_1_full_grid() {
+        let bricks = create_level_bricks(1);
+        assert_eq!(bricks.len(), BRICK_COLS * BRICK_ROWS);
+        for brick in &bricks {
+            assert_eq!(brick.brick_type, BrickType::Normal);
+            assert!(brick.active);
+        }
+    }
+
+    #[test]
+    fn test_level_2_alternating_rows() {
+        let bricks = create_level_bricks(2);
+        assert!(bricks.len() < BRICK_COLS * BRICK_ROWS);
+        for brick in &bricks {
+            assert_eq!(brick.brick_type, BrickType::Normal);
+        }
+    }
+
+    #[test]
+    fn test_level_3_spiral() {
+        let bricks = create_level_bricks(3);
+        assert!(!bricks.is_empty());
+        for brick in &bricks {
+            assert_eq!(brick.brick_type, BrickType::Normal);
+        }
+    }
+
+    #[test]
+    fn test_level_4_checkerboard() {
+        let bricks = create_level_bricks(4);
+        assert!(bricks.len() < BRICK_COLS * BRICK_ROWS);
+    }
+
+    #[test]
+    fn test_level_5_random() {
+        let bricks = create_level_bricks(5);
+        assert!(!bricks.is_empty());
+    }
+
+    #[test]
+    fn test_level_6_tundra_frozen() {
+        let bricks = create_level_bricks(6);
+        let frozen_count = bricks
+            .iter()
+            .filter(|b| b.brick_type == BrickType::Frozen)
+            .count();
+        assert!(frozen_count > 0, "Level 6 should have Frozen bricks");
+    }
+
+    #[test]
+    fn test_level_7_minefield() {
+        let bricks = create_level_bricks(7);
+        let exploding = bricks
+            .iter()
+            .filter(|b| b.brick_type == BrickType::Exploding)
+            .count();
+        let steel = bricks
+            .iter()
+            .filter(|b| b.brick_type == BrickType::Steel)
+            .count();
+        assert!(exploding > 0, "Level 7 should have Exploding bricks");
+        assert!(steel > 0, "Level 7 should have Steel bricks");
+        for brick in &bricks {
+            if brick.brick_type == BrickType::Steel {
+                assert!(brick.health > 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_level_8_pendulum() {
+        let bricks = create_level_bricks(8);
+        assert_eq!(bricks.len(), BRICK_COLS * BRICK_ROWS);
+    }
+
+    #[test]
+    fn test_level_9_fortress() {
+        let bricks = create_level_bricks(9);
+        let regen = bricks
+            .iter()
+            .filter(|b| b.brick_type == BrickType::Regenerating)
+            .count();
+        let steel = bricks
+            .iter()
+            .filter(|b| b.brick_type == BrickType::Steel)
+            .count();
+        assert!(regen > 0, "Level 9 should have Regenerating bricks");
+        assert!(steel > 0, "Level 9 should have Steel bricks");
+    }
+
+    #[test]
+    fn test_level_10_chaos() {
+        let bricks = create_level_bricks(10);
+        let types: std::collections::HashSet<_> = bricks.iter().map(|b| b.brick_type).collect();
+        assert!(types.contains(&BrickType::Normal));
+        assert!(types.contains(&BrickType::Steel));
+        assert!(types.contains(&BrickType::Exploding));
+    }
+
+    #[test]
+    fn test_brick_dimensions() {
+        let bricks = create_level_bricks(1);
+        for brick in &bricks {
+            assert_eq!(brick.width, BRICK_WIDTH);
+            assert_eq!(brick.height, BRICK_HEIGHT);
+        }
+    }
+
+    #[test]
+    fn test_default_level() {
+        let bricks = create_level_bricks(0);
+        assert_eq!(bricks.len(), BRICK_COLS * BRICK_ROWS);
+    }
+
+    #[test]
+    fn test_all_levels_valid() {
+        for level in 1..=10 {
+            let bricks = create_level_bricks(level);
+            assert!(!bricks.is_empty(), "Level {} should have bricks", level);
+            for brick in &bricks {
+                assert!(brick.active);
+                assert!(brick.x >= 0.0);
+                assert!(brick.y >= 0.0);
+            }
+        }
+    }
+}

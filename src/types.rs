@@ -28,7 +28,7 @@ pub enum PowerUpType {
     PaddleShrink, // ◈ Red/Dark: Shrink paddle to 60px (60% of normal)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum BrickType {
     Normal,
     Frozen,       // Slows ball on hit (40% reduction, 120 frames)
