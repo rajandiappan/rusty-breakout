@@ -81,11 +81,16 @@ impl Game {
         if is_key_pressed(KeyCode::Space) {
             self.start_game();
         }
+        
+        // Gamepad support for menu (A button or Start button)
+        if is_gamepad_button_pressed(0, GamepadButton::South) || is_gamepad_button_pressed(0, GamepadButton::Start) {
+            self.start_game();
+        }
     }
 
     fn update_playing(&mut self) {
-        // Handle pause toggle (P key)
-        if is_key_pressed(KeyCode::P) {
+        // Handle pause toggle (P key or gamepad Start button)
+        if is_key_pressed(KeyCode::P) || is_gamepad_button_pressed(0, GamepadButton::Start) {
             self.state.is_paused = !self.state.is_paused;
         }
 
@@ -93,6 +98,19 @@ impl Game {
         if is_key_pressed(KeyCode::T) {
             self.state.current_theme = self.state.current_theme.next();
             self.state.theme_colors = crate::themes::get_theme_colors(self.state.current_theme);
+        }
+
+        // Handle volume control (+ and - keys or gamepad bumpers)
+        if is_key_pressed(KeyCode::Equal) || is_gamepad_button_pressed(0, GamepadButton::RightShoulder) {
+            self.state.audio.increase_volume();
+        }
+        if is_key_pressed(KeyCode::Minus) || is_gamepad_button_pressed(0, GamepadButton::LeftShoulder) {
+            self.state.audio.decrease_volume();
+        }
+
+        // Handle audio toggle (M key or gamepad Back button)
+        if is_key_pressed(KeyCode::M) || is_gamepad_button_pressed(0, GamepadButton::Back) {
+            self.state.audio.toggle_sfx();
         }
 
         // Update particle system regardless of pause
@@ -120,11 +138,28 @@ impl Game {
     }
 
     fn update_paddle(&mut self) {
+        // Keyboard input
         if is_key_down(KeyCode::Left) || is_key_down(KeyCode::A) {
             self.state.paddle.x -= PADDLE_SPEED;
         }
         if is_key_down(KeyCode::Right) || is_key_down(KeyCode::D) {
             self.state.paddle.x += PADDLE_SPEED;
+        }
+
+        // USB Controller/Gamepad input (Gamepad 0)
+        // D-pad left/right for paddle movement
+        if is_gamepad_button_down(0, GamepadButton::DPadLeft) {
+            self.state.paddle.x -= PADDLE_SPEED;
+        }
+        if is_gamepad_button_down(0, GamepadButton::DPadRight) {
+            self.state.paddle.x += PADDLE_SPEED;
+        }
+
+        // Left stick X-axis for smooth paddle control
+        let stick_x = gamepad_axis(0, GamepadAxis::LeftStickX);
+        const DEADZONE: f32 = 0.2;
+        if stick_x.abs() > DEADZONE {
+            self.state.paddle.x += stick_x * PADDLE_SPEED * 0.8;
         }
 
         // Clamp paddle to screen bounds
@@ -146,8 +181,10 @@ impl Game {
                 ball.vx = 0.0;
                 ball.vy = 0.0;
                 
-                // Release on spacebar
-                if is_key_pressed(KeyCode::Space) {
+                // Release on spacebar or gamepad A button
+                let release = is_key_pressed(KeyCode::Space) || is_gamepad_button_pressed(0, GamepadButton::South);
+                
+                if release {
                     ball.is_magnetized = false;
                     ball.vx = 2.0;
                     ball.vy = -4.0;
