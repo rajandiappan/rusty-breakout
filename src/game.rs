@@ -1,19 +1,39 @@
 use crate::constants::*;
 use crate::types::{Ball, PowerUp, PowerUpType, GameState, GamePhase};
 use crate::level;
+use crate::settings::{GameSettings, Difficulty};
 use macroquad::prelude::*;
+
+const SETTINGS_PATH: &str = "settings/game.json";
 
 pub struct Game {
     pub state: GameState,
+    pub settings: GameSettings,
 }
 
 impl Game {
     pub fn new() -> Self {
+        let settings = GameSettings::load_from_file(SETTINGS_PATH).unwrap_or_default();
         let mut game = Game {
             state: GameState::new(),
+            settings,
         };
+        game.apply_settings();
         game.start_menu();
         game
+    }
+
+    pub fn apply_settings(&mut self) {
+        self.state.difficulty = self.settings.difficulty;
+        self.state.current_theme = self.settings.theme;
+        self.state.theme_colors = crate::themes::get_theme_colors(self.state.current_theme);
+        self.state.audio.volume = self.settings.sfx_volume;
+        self.state.audio.set_music_volume(self.settings.music_volume);
+    }
+
+    pub fn save_settings(&mut self) {
+        self.settings.clamp_volumes();
+        let _ = self.settings.save_to_file(SETTINGS_PATH);
     }
 
     pub fn start_menu(&mut self) {
@@ -59,7 +79,7 @@ impl Game {
         self.state.paddle.shrunk_width = paddle_width * 0.6;
         self.state.paddle.is_extended = false;
         self.state.paddle.is_shrunk = false;
-        self.state.paddle.has_shield = false;
+        self.state.paddle.shield_count = 0;
         self.state.paddle.magnetized_ball = None;
     }
 
@@ -108,14 +128,31 @@ impl Game {
         if is_key_pressed(KeyCode::T) {
             self.state.current_theme = self.state.current_theme.next();
             self.state.theme_colors = crate::themes::get_theme_colors(self.state.current_theme);
+            self.settings.theme = self.state.current_theme;
+            self.save_settings();
+        }
+
+        // Handle difficulty switching (D key)
+        if is_key_pressed(KeyCode::D) {
+            self.state.difficulty = match self.state.difficulty {
+                Difficulty::Easy => Difficulty::Normal,
+                Difficulty::Normal => Difficulty::Hard,
+                Difficulty::Hard => Difficulty::Easy,
+            };
+            self.settings.difficulty = self.state.difficulty;
+            self.save_settings();
         }
 
         // Handle volume control (+ and - keys)
         if is_key_pressed(KeyCode::Equal) {
             self.state.audio.increase_volume();
+            self.settings.sfx_volume = self.state.audio.volume;
+            self.save_settings();
         }
         if is_key_pressed(KeyCode::Minus) {
             self.state.audio.decrease_volume();
+            self.settings.sfx_volume = self.state.audio.volume;
+            self.save_settings();
         }
 
         // Handle music toggle (M key)
@@ -132,9 +169,13 @@ impl Game {
         // Volume control (LB/RB shoulder buttons)
         if self.state.gamepad.is_lb_pressed() {
             self.state.audio.decrease_volume();
+            self.settings.sfx_volume = self.state.audio.volume;
+            self.save_settings();
         }
         if self.state.gamepad.is_rb_pressed() {
             self.state.audio.increase_volume();
+            self.settings.sfx_volume = self.state.audio.volume;
+            self.save_settings();
         }
 
         // Music toggle (Back/Select button on gamepad)
@@ -233,7 +274,7 @@ impl Game {
             // Wall collisions
             if ball.x <= BALL_RADIUS || ball.x >= SCREEN_WIDTH - BALL_RADIUS {
                 ball.vx = -ball.vx;
-                ball.x = ball.x.max(BALL_RADIUS).min(SCREEN_WIDTH - BALL_RADIUS);
+                ball.x = ball.x.clamp(BALL_RADIUS, SCREEN_WIDTH - BALL_RADIUS);
             }
 
             if ball.y <= BALL_RADIUS {
@@ -250,7 +291,7 @@ impl Game {
         // [NEW] Handle laser firing
         if self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::Laser) {
             // Fire laser from paddle every frame when active
-            if self.state.frame_count % 6 == 0 {  // Fire every 6 frames (10 shots/sec)
+            if self.state.frame_count.is_multiple_of(6) {  // Fire every 6 frames (10 shots/sec)
                 self.state.laser_shots.push(crate::types::LaserShot {
                     x: self.state.paddle.x + self.state.paddle.width / 2.0 - LASER_WIDTH / 2.0,
                     y: PADDLE_Y - LASER_HEIGHT,
@@ -267,6 +308,12 @@ impl Game {
         // Only lose 1 life when ALL balls are gone
         if self.state.balls.is_empty() {
             self.state.lives -= 1;
+
+            // Reset paddle state on life lost
+            self.state.paddle.width = self.state.paddle.normal_width;
+            self.state.paddle.is_extended = false;
+            self.state.paddle.is_shrunk = false;
+            self.state.paddle.shield_count = 0;
 
             if self.state.lives == 0 {
                 self.state.phase = GamePhase::GameOver;
@@ -302,6 +349,18 @@ impl Game {
         for powerup in &mut self.state.active_powerups {
             if powerup.remaining_frames > 0 {
                 powerup.remaining_frames -= 1;
+            }
+        }
+
+        // Magnetize expiration: release magnetized balls when duration ends
+        if self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::Magnetize && p.remaining_frames == 0) {
+            for ball in &mut self.state.balls {
+                if ball.is_magnetized {
+                    ball.is_magnetized = false;
+                    // Release with a small nudge to avoid sticking
+                    ball.vx = 2.0;
+                    ball.vy = -4.0;
+                }
             }
         }
 
@@ -469,14 +528,14 @@ impl Game {
 
         self.state.laser_shots.retain(|l| l.active);
 
-        // [NEW] Handle shield - catch falling balls
-        if self.state.paddle.has_shield {
+        // [NEW] Handle shield - catch falling balls (stacking supported)
+        if self.state.paddle.shield_count > 0 {
             for ball in &mut self.state.balls {
                 if ball.y > PADDLE_Y && ball.y < SCREEN_HEIGHT {
-                    // Ball hit the shield - restore it and remove shield
+                    // Ball hit the shield - restore it and decrement shield count
                     ball.active = true;
                     ball.vy = -4.0;
-                    self.state.paddle.has_shield = false;
+                    self.state.paddle.shield_count = self.state.paddle.shield_count.saturating_sub(1);
                     
                     // Emit particles
                     self.state.particle_system.power_up_pickup(
@@ -517,22 +576,32 @@ impl Game {
                 self.state.achievements.increment_progress(crate::achievements::AchievementId::PowerUpHoarder, 1);
             }
             PowerUpType::SlowTime => {
-                self.state.active_powerups.push(crate::types::ActivePowerUp {
-                    power_type,
-                    remaining_frames: POWERUP_DURATION,
-                });
+                // Stacking policy: Extend existing slow time duration if active; otherwise start a new one.
+                if let Some(active) = self.state.active_powerups.iter_mut().find(|p| p.power_type == PowerUpType::SlowTime) {
+                    active.remaining_frames = active.remaining_frames.saturating_add(POWERUP_DURATION);
+                } else {
+                    self.state.active_powerups.push(crate::types::ActivePowerUp {
+                        power_type,
+                        remaining_frames: POWERUP_DURATION,
+                    });
+                }
                 self.state.achievements.increment_progress(crate::achievements::AchievementId::TimeBender, 1);
             }
             PowerUpType::Laser => {
                 // [NEW] Activate laser mode
-                self.state.active_powerups.push(crate::types::ActivePowerUp {
-                    power_type,
-                    remaining_frames: POWERUP_LASER_DURATION,
-                });
+                // Stacking policy: Refresh existing laser duration if active; otherwise start a new one.
+                if let Some(active) = self.state.active_powerups.iter_mut().find(|p| p.power_type == PowerUpType::Laser) {
+                    active.remaining_frames = POWERUP_LASER_DURATION;
+                } else {
+                    self.state.active_powerups.push(crate::types::ActivePowerUp {
+                        power_type,
+                        remaining_frames: POWERUP_LASER_DURATION,
+                    });
+                }
             }
             PowerUpType::Shield => {
-                // [NEW] Grant shield to paddle
-                self.state.paddle.has_shield = true;
+                // [NEW] Grant shield to paddle (stacking allowed)
+                self.state.paddle.shield_count = self.state.paddle.shield_count.saturating_add(1);
             }
             PowerUpType::Bomb => {
                 // [NEW] Trigger bomb explosion at paddle position
@@ -540,12 +609,17 @@ impl Game {
             }
             PowerUpType::Magnetize => {
                 // [NEW] Magnetize the first ball to the paddle
+                // Stacking policy: Extend existing magnetize duration if active; otherwise start a new one.
                 if !self.state.balls.is_empty() {
                     self.state.balls[0].is_magnetized = true;
-                    self.state.active_powerups.push(crate::types::ActivePowerUp {
-                        power_type,
-                        remaining_frames: POWERUP_MAGNETIZE_DURATION,
-                    });
+                    if let Some(active) = self.state.active_powerups.iter_mut().find(|p| p.power_type == PowerUpType::Magnetize) {
+                        active.remaining_frames = active.remaining_frames.saturating_add(POWERUP_MAGNETIZE_DURATION);
+                    } else {
+                        self.state.active_powerups.push(crate::types::ActivePowerUp {
+                            power_type,
+                            remaining_frames: POWERUP_MAGNETIZE_DURATION,
+                        });
+                    }
                 }
             }
             PowerUpType::PaddleShrink => {
@@ -628,7 +702,7 @@ impl Game {
                 self.state.audio.stop_music();
                 
                 // Check for PerfectClear (beat all levels without losing a life)
-                if self.state.lives == 3 {
+                if self.state.lives == STARTING_LIVES {
                     // Assuming we started with 3 lives
                     self.state.achievements.unlock(crate::achievements::AchievementId::PerfectClear);
                 }

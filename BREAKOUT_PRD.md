@@ -1341,13 +1341,206 @@ gilrs = "0.10"    # USB gamepad/controller support
   - Exclusive challenge events
   - Premium currency earnable through gameplay
 
-### Phase 5: Advanced Gameplay (Future Milestone)
+### Phase 5: Advanced Gameplay (✓ IN PROGRESS)
 
-- **Advanced Brick Types**
-  - Steel bricks (2-3 hits to destroy)
-  - Explosive bricks (chain destruction)
-  - Frozen bricks (slow ball on impact)
-  - Regenerating bricks (respawn after delay)
+This phase introduces advanced brick types, environmental hazards, and difficulty scaling beyond the original 5 levels.
+
+---
+
+#### 5.1 Advanced Brick Types
+
+These bricks change the physics of the ball or the state of the board upon impact.
+
+##### Frozen Bricks (Ice)
+
+| Property | Value |
+|----------|-------|
+| **Visual** | Translucent light blue with snowflake icon |
+| **Effect** | Ball velocity reduced by 40% for 120 frames (2 seconds) |
+| **Utility** | Acts as "hazard" disrupting timing or "help" if ball too fast |
+| **Physics Implementation** | Temporarily override ball.velocity in update() loop |
+
+##### Exploding Bricks (Nitro)
+
+| Property | Value |
+|----------|-------|
+| **Visual** | Pulsing red/orange with "!" or bomb icon |
+| **Effect** | Triggers radius explosion (80 pixels) destroying adjacent bricks |
+| **Chain Reaction** | If exploding brick within radius of another, triggers secondary blast |
+| **Physics Implementation** | Radial detection: `for each brick in distance(ball, brick) < radius { destroy() }` |
+| **Particle Integration** | Use existing ParticleSystem with emit_explosion (higher particle count, larger spread) |
+
+##### Steel Bricks (Armor)
+
+| Property | Value |
+|----------|-------|
+| **Visual** | Metallic grey with rivets |
+| **Effect** | Requires 3 hits to destroy |
+| **Visual Feedback** | Changes color/texture (cracks) after each hit to show progress |
+| **Physics Implementation** | Change Brick.is_destroyed from bool to u8 (health: 0-3) |
+
+##### Regenerating Bricks (Ghost)
+
+| Property | Value |
+|----------|-------|
+| **Visual** | Faded, semi-transparent purple |
+| **Effect** | If not destroyed within "combo window," brick reappears 5 seconds after hit |
+| **Timing** | 300-frame regeneration timer (5 seconds) |
+| **Implementation** | Track "combo hits" - regenerate if combo window expires without destruction |
+
+---
+
+#### 5.2 Creative Difficulty Scaling
+
+Environmental factors that challenge the player beyond simple ball speed increases.
+
+##### A. Moving Brick Formations
+
+| Feature | Implementation |
+|---------|----------------|
+| **Kinematic Grids** | Bricks attached to "Parent Container" that oscillates or rotates |
+| **Motion Types** | Horizontal oscillation (left-right), pendulum swing (rotation) |
+| **Code Update** | Update brick.rs to include velocity property for brick grid |
+| **Rendering** | Frame-based offset: `offset_x = sin(frame_count) * amplitude` |
+
+##### B. Obstructors (Non-Brick Hazards)
+
+**Black Hole:**
+| Property | Value |
+|----------|-------|
+| **Visual** | Dark void with gravitational distortion effect |
+| **Location** | Center of screen |
+| **Effect** | Localized gravity well subtly pulls ball trajectory toward center |
+| **Difficulty** | Makes straight shots difficult |
+
+**Moving Bumpers:**
+| Property | Value |
+|----------|-------|
+| **Visual** | Invincible circular bumpers (like pinball) |
+| **Motion** | Move horizontally between bricks and paddle |
+| **Effect** | Redirect ball unexpectedly |
+| **Placement** | Between brick grid and paddle area |
+
+##### C. Visibility Challenges
+
+**Fog of War:**
+| Property | Value |
+|----------|-------|
+| **Visual** | Dark overlay obscuring game area |
+| **Effect** | Only reveals bricks within 150px radius of ball |
+| **Implementation** | Render dark overlay with circular cutout at ball position |
+
+**Screen Tilt:**
+| Property | Value |
+|----------|-------|
+| **Visual** | Entire game board slightly tilts or "shakes" |
+| **Trigger** | When Steel Brick is hit |
+| **Effect** | Makes paddle harder to align |
+| **Implementation** | Temporary camera rotation offset with decay |
+
+---
+
+#### 5.3 Physics & Logic Requirements
+
+| Feature | Physics Requirement | Logic Change |
+|---------|---------------------|--------------|
+| **Explosion** | Radial Detection | `for each brick in distance(ball, brick) < radius { destroy() }` |
+| **Frozen** | Velocity Multiplier | Temporarily override `ball.velocity` in update() loop |
+| **Steel** | Hit Counter | Change `Brick.is_destroyed` from bool to u8 (health) |
+| **Moving Bricks** | Frame-based Offset | Add `offset_x = sin(frame_count) * amplitude` to rendering |
+| **Regenerating** | Timer-based | Track regeneration timer, restore brick after 300 frames |
+| **Black Hole** | Gravity vector | Apply subtle force vector toward center each frame |
+| **Fog of War** | Visibility radius | Only render bricks within distance(ball, brick) < 150 |
+| **Screen Tilt** | Camera rotation | Apply temporary rotation to rendering transform |
+
+---
+
+#### 5.4 Proposed Level Themes (Levels 6-10)
+
+| Level | Name | Features | Difficulty |
+|-------|------|----------|------------|
+| **6** | The Tundra | Frozen Bricks in corners, speed management required | Medium |
+| **7** | Minefield | Checkerboard of Exploding + Steel Bricks, single hit clears 20% of map | Hard |
+| **8** | The Pendulum | Entire brick grid swings left-right like clock pendulum | Hard |
+| **9** | The Fortress | Core of Regenerating Bricks protected by double-layer ring of Steel Bricks | Expert |
+| **10** | Chaos Theory | Mix of all brick types with Moving Bumper active in mid-field | Expert |
+
+**Level 6 (The Tundra):**
+- Frozen Bricks placed in corner positions
+- Player must manage ball speed carefully through icy zones
+- Introduces new brick type gradually
+
+**Level 7 (Minefield):**
+- Alternating pattern of Exploding (Nitro) and Steel Bricks
+- Strategic hit triggers chain reaction clearing large sections
+- High risk/high reward gameplay
+
+**Level 8 (The Pendulum):**
+- Entire brick container oscillates horizontally
+- Timing becomes critical as target positions shift
+- Ball trajectory prediction requires accounting for movement
+
+**Level 9 (The Fortress):**
+- Inner core: Regenerating Bricks (respawn if not destroyed quickly)
+- Outer protection: Two layers of Steel Bricks requiring 6 hits per layer
+- Requires sustained aggressive play to break through
+
+**Level 10 (Chaos Theory):**
+- All advanced brick types present
+- Moving Bumper patrols middle field
+- Fog of War active (optional hard mode)
+- Ultimate challenge combining all Phase 5 mechanics
+
+---
+
+#### 5.5 Implementation Notes
+
+**Particle System Integration:**
+- Nitro (Exploding) bricks use existing ParticleSystem from Phase 2
+- Trigger `emit_explosion` with higher particle count (50+) and larger spread radius
+- Chain reactions spawn additional explosion particles
+
+**Brick.rs Updates Required:**
+```rust
+// New BrickType enum
+enum BrickType {
+    Normal,
+    Frozen,      // Slows ball on hit
+    Exploding,   // Chain destruction
+    Steel,       // Multi-hit (u8 health)
+    Regenerating // Respawns after delay
+}
+
+// Update Brick struct
+struct Brick {
+    brick_type: BrickType,
+    health: u8,           // For Steel bricks (0-3)
+    regen_timer: u32,     // For Regenerating bricks
+    is_hit: bool,         // For Regenerating combo tracking
+    // ... existing fields
+}
+```
+
+**Moving Formation Implementation:**
+```rust
+struct BrickFormation {
+    offset_x: f32,
+    offset_y: f32,
+    oscillation_amplitude: f32,
+    oscillation_frequency: f32,
+    rotation_angle: f32,
+}
+
+impl BrickFormation {
+    pub fn update(&mut self, frame_count: u32) {
+        self.offset_x = (frame_count as f32 * 0.02).sin() * self.oscillation_amplitude;
+    }
+}
+```
+
+---
+
+### Phase 6: Community & Multiplayer (Future Milestone)
   
 - **Advanced Power-Ups**
   - Laser beam paddle (destroys bricks in straight line)
@@ -1382,27 +1575,27 @@ These features are interesting but deferred to maintain focus:
 
 ## 14. Technical Implementation Details
 
-### 14.1 Phase 2 Technology Stack
+### 14.1 Phase 5 Technology Stack
 
-**Audio:**
-- Library: Macroquad native audio or `rodio` crate for advanced control
-- Format Support: WAV (SFX), OGG Vorbis (music for compression)
-- Mixing: Support for simultaneous SFX + background music
+**New Brick System:**
+- BrickType enum with 5 variants (Normal, Frozen, Exploding, Steel, Regenerating)
+- Health tracking (u8) for Steel bricks
+- Regeneration timer system (300 frames)
+- Formation movement system (oscillation/rotation)
 
-**Graphics Enhancements:**
-- Particle System: Custom Vec-based implementation
-- Animations: Frame-interpolation based tweening
-- Rendering: Layered (background → objects → UI → effects)
+**Environmental Hazards:**
+- Black Hole gravity well (center-positioned force vector)
+- Moving Bumpers (kinematic circular colliders)
+- Fog of War (rendering visibility mask)
+- Screen Tilt (camera transform offset with decay)
 
-**Data Persistence:**
-- Format: JSON for human readability and editability
-- Locations:
-  - `config/settings.json` - User preferences
-  - `data/achievements.json` - Unlocked achievements
-  - `data/highscores.json` - High score entries
-  - `data/statistics.json` - Player statistics
+**Particle Effects (Enhanced):**
+- Explosion particles for Nitro bricks (50+ particles, larger spread)
+- Chain reaction secondary explosions
+- Ice crystal burst on Frozen brick hit
+- Steel brick crack progression particles
 
-**Dependencies (New for Phase 2+):**
+**Dependencies (Updated for Phase 5):**
 ```toml
 [dependencies]
 macroquad = "0.4"
@@ -1411,6 +1604,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rodio = "0.17"   # Real audio synthesis & playback (✓ IMPLEMENTED)
 gilrs = "0.10"   # USB gamepad/controller support (✓ IMPLEMENTED)
+# Phase 5: No new dependencies required
 ```
 
 ### 14.2 Development Timeline Estimate
@@ -1575,11 +1769,11 @@ gilrs = "0.10"   # USB gamepad/controller support (✓ IMPLEMENTED)
 
 ---
 
-**Document Version:** 2.3 (Phase 1-4 Complete + Debug Console Fix)  
+**Document Version:** 2.4 (Phase 1-4 Complete + Phase 5 In Progress)  
 **Last Updated:** 2026-04-06  
 **Phase 1 Status:** ✓ Complete - All core mechanics working  
 **Phase 2 Status:** ✓ Complete - Professional polish implemented (Commit 33d66ae)  
 **Phase 3 Status:** ✓ Complete - Real audio system with rodio (Commit 5eb4546)  
-**Phase 4 Status:** ✓ Complete - USB gamepad support  
-**Debug Console Fix:** ✓ Complete - Release builds run without debug terminal  
-**Phase 4 Status:** ✓ Complete - USB gamepad support (Commit 2d47f91)
+**Phase 4 Status:** ✓ Complete - USB gamepad support (Commit 2d47f91)  
+**Phase 5 Status:** ✓ In Progress - Advanced brick types, environmental hazards, Levels 6-10  
+**Debug Console Fix:** ✓ Complete - Release builds run without debug terminal

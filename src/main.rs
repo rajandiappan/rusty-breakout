@@ -50,7 +50,6 @@ async fn main() {
         game.update().await;
 
         // Render
-        clear_background(BLACK);
         game.render();
 
         // Frame timing (60 FPS)

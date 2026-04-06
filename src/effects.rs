@@ -58,6 +58,7 @@ impl Particle {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct ParticleEmitter {
     pub x: f32,
     pub y: f32,
@@ -97,6 +98,7 @@ impl ParticleEmitter {
         }
     }
 
+    #[allow(dead_code)]
     pub fn emit_random(
         &mut self,
         count: usize,
@@ -169,6 +171,7 @@ impl ParticleSystem {
         self.add_emitter(emitter);
     }
 
+    #[allow(dead_code)]
     pub fn ball_collision(&mut self, x: f32, y: f32, color: Color) {
         let mut emitter = ParticleEmitter::new(x, y);
         emitter.emit_burst(8, (80.0, 150.0), 0.4, 2.0, color);

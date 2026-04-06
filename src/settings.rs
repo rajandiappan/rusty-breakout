@@ -49,7 +49,7 @@ pub enum ThemeType {
     Classic,
     Dark,
     Neon,
-    CRT,
+    Crt,
     Minimalist,
 }
 
@@ -59,17 +59,18 @@ impl ThemeType {
             ThemeType::Classic => "classic",
             ThemeType::Dark => "dark",
             ThemeType::Neon => "neon",
-            ThemeType::CRT => "crt",
+            ThemeType::Crt => "crt",
             ThemeType::Minimalist => "minimalist",
         }
     }
 
+    #[allow(dead_code)]
     pub fn all_themes() -> &'static [ThemeType] {
         &[
             ThemeType::Classic,
             ThemeType::Dark,
             ThemeType::Neon,
-            ThemeType::CRT,
+            ThemeType::Crt,
             ThemeType::Minimalist,
         ]
     }
@@ -78,14 +79,15 @@ impl ThemeType {
         match self {
             ThemeType::Classic => ThemeType::Dark,
             ThemeType::Dark => ThemeType::Neon,
-            ThemeType::Neon => ThemeType::CRT,
-            ThemeType::CRT => ThemeType::Minimalist,
+            ThemeType::Neon => ThemeType::Crt,
+            ThemeType::Crt => ThemeType::Minimalist,
             ThemeType::Minimalist => ThemeType::Classic,
         }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct GameSettings {
     pub difficulty: Difficulty,
     pub theme: ThemeType,
@@ -110,6 +112,7 @@ impl Default for GameSettings {
     }
 }
 
+#[allow(dead_code)]
 impl GameSettings {
     pub fn load_from_file(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
         if Path::new(path).exists() {
@@ -135,8 +138,8 @@ impl GameSettings {
     }
 
     pub fn clamp_volumes(&mut self) {
-        self.music_volume = self.music_volume.max(0.0).min(1.0);
-        self.sfx_volume = self.sfx_volume.max(0.0).min(1.0);
+        self.music_volume = self.music_volume.clamp(0.0, 1.0);
+        self.sfx_volume = self.sfx_volume.clamp(0.0, 1.0);
     }
 }
 

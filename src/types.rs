@@ -50,7 +50,7 @@ pub struct Paddle {
     pub is_extended: bool,
     pub is_shrunk: bool,                // [NEW] Shrink status
     pub shrunk_width: f32,              // [NEW] Width when shrunk
-    pub has_shield: bool,               // [NEW] Shield status
+    pub shield_count: u8,               // [NEW] Shield count (for stacking)
     pub magnetized_ball: Option<usize>, // [NEW] Index of stuck ball, if any
 }
 
@@ -138,7 +138,7 @@ impl GameState {
                 is_extended: false,
                 is_shrunk: false,
                 shrunk_width: PADDLE_WIDTH * 0.6,
-                has_shield: false,
+                shield_count: 0,
                 magnetized_ball: None,
             },
             bricks: Vec::new(),

@@ -64,10 +64,13 @@ fn create_spiral(bricks: &mut Vec<Brick>) {
 
     for row in 0..BRICK_ROWS {
         for col in 0..BRICK_COLS {
-            let dist_from_center = ((col as i32 - center_col as i32).abs().max((row as i32 - center_row as i32).abs())) as f32;
+            let dist_from_center = ((col as i32 - center_col as i32)
+                .abs()
+                .max((row as i32 - center_row as i32).abs()))
+                as f32;
 
             // Only place bricks at spiral distances
-            if dist_from_center as usize % 2 == 0 {
+            if (dist_from_center as usize).is_multiple_of(2) {
                 let x = BRICK_START_X + col as f32 * (BRICK_WIDTH + BRICK_SPACING);
                 let y = BRICK_START_Y + row as f32 * (BRICK_HEIGHT + BRICK_SPACING);
 

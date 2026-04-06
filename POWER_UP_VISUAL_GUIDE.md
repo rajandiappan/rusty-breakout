@@ -6,7 +6,7 @@
 
 ```
 FALLING POWER-UPS (In-Game)
-═══════════════════════════════════════════════════════
+══════════════════════════════════════════════════════
 
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │      ⊕          │    │      ▬          │    │      ◐          │
@@ -15,11 +15,25 @@ FALLING POWER-UPS (In-Game)
 │ 2 Extra Balls   │    │ Wider Paddle    │    │ 50% Speed       │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 
-ACTIVE POWER-UPS (Bottom-Left HUD)
-═══════════════════════════════════════════════════════
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│      ↑          │    │      ◇          │    │      ◈          │
+│    (Cyan)       │    │    (Orange)     │    │   (Red)         │
+│     LASER       │    │     SHIELD      │    │     BOMB        │
+│ Fire Beams      │    │  Catch Ball     │    │  Destroy Area   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 
-⊕ 60        ▬ 55        ◐ 45
-(frames)    (frames)    (frames)
+┌─────────────────┐    ┌─────────────────┐
+│      ●          │    │      ◈          │
+│   (Magenta)     │    │    (Dark Red)   │
+│   MAGNETIZE     │    │  PADDLE SHRINK  │
+│  Stick to Pad   │    │  Narrow Paddle  │
+└─────────────────┘    └─────────────────┘
+
+ACTIVE POWER-UPS (Bottom-Left HUD)
+══════════════════════════════════════════════════════
+
+⊕ 60        ▬ perm        ◐ 60        ↑ 120        ● 180
+(frames)    (life)       (frames)    (frames)    (frames)
 ```
 
 ---
@@ -42,8 +56,9 @@ Before: One ball        After: Three balls
 ### ▬ (Horizontal Bar)
 **Paddle Extend Power-Up**
 - Color: **Green** (#00FF00)
-- Effect: Increase paddle width to 150 pixels
-- Duration: 60 frames (1 second)
+- Effect: Increase paddle width to 150 pixels (1.5x normal)
+- Duration: Permanent until life lost or level change
+- Expiration: Resets to normal width when player loses a life
 - Strategy: Defensive, easier to catch
 - Visual meaning: "Width" (shows horizontal extension)
 
@@ -57,13 +72,69 @@ Before: |----------|      After: |───────────────�
 - Color: **Purple** (#9933FF)
 - Effect: Reduce ball speed to 50%
 - Duration: 60 frames (1 second)
+- Stacking: When collected again while active, duration is extended by 60 frames (Extend policy)
+- Expiration behavior: On expiration, ball speed returns to 100%
 - Strategy: Defensive, regain control
 - Visual meaning: "Time" (resembles clock/moon)
 
-```
-Before: Ball speed: 100%   After: Ball speed: 50%
-    Fast movement            Slow, controllable
-```
+---
+
+### ↑ (Up Arrow)
+**Laser Power-Up**
+- Color: **Cyan** (#00FFFF)
+- Effect: Fire laser beams from paddle (10 shots/second)
+- Duration: 120 frames (2 seconds)
+- Stacking: When collected again while active, duration is refreshed to 120 frames (Refresh policy)
+- Expiration behavior: On expiration, laser firing stops
+- Strategy: Offensive, clear bricks quickly
+- Visual meaning: "Upward fire" (shooting upward)
+
+---
+
+### ◇ (Diamond)
+**Shield Power-Up**
+- Color: **Orange** (#FFA500)
+- Effect: Catch 1 falling ball and restore it to play (stacking allowed)
+- Duration: One-time use per shield collected (can stack to catch multiple balls)
+- Stacking: Each collection adds 1 more shield (max sensible limit: 3)
+- Expiration: Consumed when a ball is caught; remaining shields persist until used
+- Strategy: Defensive, saves a life when you have no balls left
+- Visual meaning: "Protection" (diamond shape indicates value/safety)
+
+---
+
+### ◈ (Diamond with Center)
+**Bomb Power-Up**
+- Color: **Red** (#FF0000)
+- Effect: Destroy all bricks in 3x3 area around paddle position (immediate)
+- Duration: One-time trigger (no duration/timer)
+- Expiration: Instant effect - no expiration, power-up is consumed on use
+- Strategy: Offensive, clear a large area of bricks quickly
+- Visual meaning: "Explosion" (diamond with center implies detonation)
+- Note: Shares symbol with Paddle Shrink; distinguish by color (Red vs Dark Red)
+
+---
+
+### Magnetize (New)
+
+- Symbol: ●
+- Color: Magenta
+- Effect: Magnetize the first ball to the paddle
+- Duration: 180 frames
+- Stacking: When collected again while active, duration is extended by 180 frames (Extend policy)
+- Expiration behavior: On expiration, magnetized balls are released automatically with a small nudge to avoid sticking, returning to normal play
+- Visual meaning: Indicates the ball will stick to the paddle for a short time
+
+---
+
+### ◈ (Diamond - Dark)
+**Paddle Shrink Power-Down** (Penalty)
+- Color: **Dark Red** (#8B0000)
+- Effect: Reduce paddle width to 60% of normal
+- Duration: Permanent until Paddle Extend collected or life lost
+- Expiration: Restores to normal width when player collects Paddle Extend or loses a life
+- Strategy: Avoid if possible, recovery is possible
+- Visual meaning: "Penalty" (shrinking as punishment)
 
 ---
 
@@ -76,6 +147,11 @@ Before: Ball speed: 100%   After: Ball speed: 50%
 | **Gold** | (255, 214, 0) | Multi-Ball ⊕ | Valuable, multiple |
 | **Green** | (0, 255, 0) | Paddle Extend ▬ | Safety, help |
 | **Purple** | (153, 51, 255) | Slow Time ◐ | Magic, control |
+| **Cyan** | (0, 255, 255) | Laser ↑ | Offensive, precision |
+| **Orange** | (255, 165, 0) | Shield ◇ | Protection |
+| **Red** | (255, 0, 0) | Bomb ◈ | Destruction |
+| **Magenta** | (255, 0, 255) | Magnetize ● | Attraction, control |
+| **Dark Red** | (139, 0, 0) | Paddle Shrink ◈ | Penalty, risk |
 
 ### Color Visibility
 

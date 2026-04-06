@@ -86,7 +86,7 @@ impl AudioManager {
                         break;
                     }
 
-                    let duration = *dur_ms as f32 / 1000.0;
+                    let duration = *dur_ms / 1000.0;
                     let num_samples = (SAMPLE_RATE as f32 * duration) as usize;
                     let mut samples = Vec::with_capacity(num_samples);
 
@@ -154,11 +154,13 @@ impl AudioManager {
     }
 
     /// Set music volume (0.0 to 1.0)
+    #[allow(dead_code)]
     pub fn set_music_volume(&mut self, vol: f32) {
         self.music_volume = vol.clamp(0.0, 1.0);
     }
 
     /// Get music enabled state
+    #[allow(dead_code)]
     pub fn is_music_enabled(&self) -> bool {
         self.music_enabled
     }
@@ -294,15 +296,18 @@ impl AudioManager {
         self.set_volume(self.volume - 0.1);
     }
 
+    #[allow(dead_code)]
     pub fn set_sfx_enabled(&mut self, enabled: bool) {
         self.sfx_enabled = enabled;
     }
 
+    #[allow(dead_code)]
     pub fn toggle_sfx(&mut self) {
         self.sfx_enabled = !self.sfx_enabled;
     }
 
     /// Get music volume
+    #[allow(dead_code)]
     pub fn get_music_volume(&self) -> f32 {
         self.music_volume
     }

@@ -129,6 +129,7 @@ impl Achievement {
         }
     }
 
+    #[allow(dead_code)]
     pub fn progress_percentage(&self) -> f32 {
         if self.target == 0 {
             0.0
@@ -143,6 +144,7 @@ pub struct AchievementManager {
     pub achievements: HashMap<AchievementId, Achievement>,
 }
 
+#[allow(dead_code)]
 impl AchievementManager {
     pub fn new() -> Self {
         let mut achievements = HashMap::new();

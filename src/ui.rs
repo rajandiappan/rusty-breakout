@@ -296,6 +296,9 @@ pub fn render_main_menu(state: &GameState) {
 }
 
 pub fn render_level_complete(state: &GameState) {
+    // Clear background with theme color
+    clear_background(state.theme_colors.background);
+
     let level_text = format!("LEVEL {} COMPLETE!", state.level);
     let level_width = measure_text(&level_text, None, 40, 1.0).width;
     draw_text(

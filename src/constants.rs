@@ -1,6 +1,7 @@
 // Game window and layout constants
 pub const SCREEN_WIDTH: f32 = 800.0;
 pub const SCREEN_HEIGHT: f32 = 600.0;
+#[allow(dead_code)]
 pub const FPS: u32 = 60;
 
 // Ball constants
@@ -39,7 +40,9 @@ pub const POWERUP_DURATION: usize = 60; // frames (1 second at 60 FPS)
 
 // [NEW] Phase 2 extended power-up durations
 pub const POWERUP_LASER_DURATION: usize = 120; // 2 seconds of laser firing
+#[allow(dead_code)]
 pub const POWERUP_SHIELD_DURATION: usize = 1; // Single-use (consumed immediately on impact)
+#[allow(dead_code)]
 pub const POWERUP_BOMB_DURATION: usize = 1; // Single-use (triggered once)
 pub const POWERUP_MAGNETIZE_DURATION: usize = 180; // 3 seconds stuck mode
 
@@ -82,6 +85,7 @@ pub const CYAN: macroquad::color::Color = macroquad::color::Color {
     a: 1.0,
 };
 
+#[allow(dead_code)]
 pub const DARK_PURPLE: macroquad::color::Color = macroquad::color::Color {
     r: 0.6,
     g: 0.2,
@@ -89,6 +93,7 @@ pub const DARK_PURPLE: macroquad::color::Color = macroquad::color::Color {
     a: 1.0,
 };
 
+#[allow(dead_code)]
 pub const GOLD: macroquad::color::Color = macroquad::color::Color {
     r: 1.0,
     g: 0.84,

@@ -8,6 +8,7 @@ pub struct ThemeColors {
     pub secondary: Color,
     pub accent: Color,
     pub text: Color,
+    #[allow(dead_code)]
     pub brick_palette: [Color; 6],
     pub ball: Color,
     pub paddle: Color,
@@ -18,7 +19,7 @@ pub fn get_theme_colors(theme: ThemeType) -> ThemeColors {
         ThemeType::Classic => classic_theme(),
         ThemeType::Dark => dark_theme(),
         ThemeType::Neon => neon_theme(),
-        ThemeType::CRT => crt_theme(),
+        ThemeType::Crt => crt_theme(),
         ThemeType::Minimalist => minimalist_theme(),
     }
 }

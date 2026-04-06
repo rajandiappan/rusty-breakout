@@ -28,6 +28,7 @@ impl GamepadInput {
     }
 
     /// Check if gamepad 0 (first connected controller) is present
+    #[allow(dead_code)]
     pub fn is_connected(&self) -> bool {
         self.gilrs.gamepads().next().is_some()
     }
@@ -49,6 +50,7 @@ impl GamepadInput {
 
     /// Get left stick Y axis value (-1.0 to 1.0)
     /// Returns 0.0 if no gamepad connected
+    #[allow(dead_code)]
     pub fn get_left_stick_y(&self, deadzone: f32) -> f32 {
         if let Some((_id, gamepad)) = self.gilrs.gamepads().next() {
             let value = gamepad.value(Axis::LeftStickY);
@@ -126,6 +128,7 @@ impl GamepadInput {
     }
 
     /// Get gamepad name/model if connected
+    #[allow(dead_code)]
     pub fn get_gamepad_name(&self) -> Option<String> {
         self.gilrs
             .gamepads()
