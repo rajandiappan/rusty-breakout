@@ -1,5 +1,7 @@
 use crate::achievements::AchievementManager;
+use crate::audio::AudioManager; // [NEW]
 use crate::effects::ParticleSystem;
+use crate::gamepad::GamepadInput; // [NEW]
 use crate::settings::{Difficulty, ThemeType};
 use crate::themes::ThemeColors;
 use macroquad::color::Color;
@@ -15,9 +17,13 @@ pub enum GamePhase {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PowerUpType {
-    MultiBall,
-    PaddleExtend,
-    SlowTime,
+    MultiBall,    // ⊕ Gold: Spawn 2 extra balls
+    PaddleExtend, // ▬ Green: Widen paddle to 150px
+    SlowTime,     // ◐ Purple: Reduce ball velocity 50%
+    Laser,        // ↑ Cyan: Fire projectiles upward
+    Shield,       // ◇ Orange: Catch 1 lost ball
+    Bomb,         // ◈ Red: Destroy bricks in 3x3 area
+    Magnetize,    // ● Magenta: Ball sticks to paddle
 }
 
 #[derive(Clone, Debug)]
@@ -28,6 +34,7 @@ pub struct Ball {
     pub vy: f32,
     pub radius: f32,
     pub active: bool,
+    pub is_magnetized: bool, // [NEW] Stuck to paddle via Magnetize
 }
 
 #[derive(Clone, Debug)]
@@ -39,6 +46,8 @@ pub struct Paddle {
     pub normal_width: f32,
     pub extended_width: f32,
     pub is_extended: bool,
+    pub has_shield: bool,               // [NEW] Shield status
+    pub magnetized_ball: Option<usize>, // [NEW] Index of stuck ball, if any
 }
 
 #[derive(Clone, Debug)]
@@ -66,6 +75,15 @@ pub struct ActivePowerUp {
 }
 
 #[derive(Clone, Debug)]
+pub struct LaserShot {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub active: bool,
+}
+
+#[derive(Debug)]
 pub struct GameState {
     pub level: usize,
     pub score: u32,
@@ -86,6 +104,10 @@ pub struct GameState {
     pub achievements: AchievementManager,
     pub is_paused: bool,
     pub particle_system: ParticleSystem,
+    // Phase 2 extensions - new power-ups
+    pub laser_shots: Vec<LaserShot>, // [NEW] Active laser projectiles
+    pub audio: AudioManager,         // [NEW] Audio system
+    pub gamepad: GamepadInput,       // [NEW] Gamepad/Controller input
 }
 
 impl GameState {
@@ -110,6 +132,8 @@ impl GameState {
                 normal_width: 100.0,
                 extended_width: 150.0,
                 is_extended: false,
+                has_shield: false,
+                magnetized_ball: None,
             },
             bricks: Vec::new(),
             powerups: Vec::new(),
@@ -122,6 +146,9 @@ impl GameState {
             achievements: AchievementManager::new(),
             is_paused: false,
             particle_system: ParticleSystem::new(),
+            laser_shots: Vec::new(),
+            audio: AudioManager::new(),   // [NEW]
+            gamepad: GamepadInput::new(), // [NEW]
         }
     }
 }

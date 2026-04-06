@@ -13,6 +13,7 @@ mod themes;
 mod achievements;
 mod effects;
 mod audio;
+mod gamepad;
 
 use macroquad::prelude::*;
 use game::Game;

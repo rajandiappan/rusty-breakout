@@ -36,6 +36,10 @@ pub fn render_game(state: &GameState) {
                 PowerUpType::MultiBall => state.theme_colors.accent,
                 PowerUpType::PaddleExtend => state.theme_colors.primary,
                 PowerUpType::SlowTime => state.theme_colors.secondary,
+                PowerUpType::Laser => CYAN,        // [NEW]
+                PowerUpType::Shield => ORANGE,     // [NEW]
+                PowerUpType::Bomb => RED,          // [NEW]
+                PowerUpType::Magnetize => MAGENTA, // [NEW]
             };
             draw_rectangle(
                 powerup.x - POWERUP_WIDTH / 2.0,
@@ -50,6 +54,10 @@ pub fn render_game(state: &GameState) {
                 PowerUpType::MultiBall => (POWERUP_MULTIBALL_SYMBOL, POWERUP_MULTIBALL_LABEL),
                 PowerUpType::PaddleExtend => (POWERUP_EXTEND_SYMBOL, POWERUP_EXTEND_LABEL),
                 PowerUpType::SlowTime => (POWERUP_SLOWTIME_SYMBOL, POWERUP_SLOWTIME_LABEL),
+                PowerUpType::Laser => (POWERUP_LASER_SYMBOL, POWERUP_LASER_LABEL), // [NEW]
+                PowerUpType::Shield => (POWERUP_SHIELD_SYMBOL, POWERUP_SHIELD_LABEL), // [NEW]
+                PowerUpType::Bomb => (POWERUP_BOMB_SYMBOL, POWERUP_BOMB_LABEL),    // [NEW]
+                PowerUpType::Magnetize => (POWERUP_MAGNETIZE_SYMBOL, POWERUP_MAGNETIZE_LABEL), // [NEW]
             };
 
             // Draw border around power-up
@@ -72,6 +80,13 @@ pub fn render_game(state: &GameState) {
                 14.0,
                 state.theme_colors.text,
             );
+        }
+    }
+
+    // [NEW] Render laser shots
+    for laser in &state.laser_shots {
+        if laser.active {
+            draw_rectangle(laser.x, laser.y, laser.width, laser.height, CYAN);
         }
     }
 
@@ -106,11 +121,19 @@ pub fn render_game(state: &GameState) {
             PowerUpType::MultiBall => (POWERUP_MULTIBALL_SYMBOL, POWERUP_MULTIBALL_LABEL),
             PowerUpType::PaddleExtend => (POWERUP_EXTEND_SYMBOL, POWERUP_EXTEND_LABEL),
             PowerUpType::SlowTime => (POWERUP_SLOWTIME_SYMBOL, POWERUP_SLOWTIME_LABEL),
+            PowerUpType::Laser => (POWERUP_LASER_SYMBOL, POWERUP_LASER_LABEL), // [NEW]
+            PowerUpType::Shield => (POWERUP_SHIELD_SYMBOL, POWERUP_SHIELD_LABEL), // [NEW]
+            PowerUpType::Bomb => (POWERUP_BOMB_SYMBOL, POWERUP_BOMB_LABEL),    // [NEW]
+            PowerUpType::Magnetize => (POWERUP_MAGNETIZE_SYMBOL, POWERUP_MAGNETIZE_LABEL), // [NEW]
         };
         let color = match active.power_type {
             PowerUpType::MultiBall => state.theme_colors.accent,
             PowerUpType::PaddleExtend => state.theme_colors.primary,
             PowerUpType::SlowTime => state.theme_colors.secondary,
+            PowerUpType::Laser => CYAN,        // [NEW]
+            PowerUpType::Shield => ORANGE,     // [NEW]
+            PowerUpType::Bomb => RED,          // [NEW]
+            PowerUpType::Magnetize => MAGENTA, // [NEW]
         };
 
         // Draw symbol and timer
@@ -182,6 +205,33 @@ pub fn render_pause_overlay(state: &GameState) {
         SCREEN_WIDTH / 2.0 - ts_width / 2.0,
         SCREEN_HEIGHT / 2.0 + 85.0,
         20.0,
+        state.theme_colors.text,
+    );
+
+    // Volume control display
+    let volume_pct = (state.audio.get_volume() * 100.0) as u32;
+    let volume_text = format!("Volume: {}% (±/-)", volume_pct);
+    let vol_width = measure_text(&volume_text, None, 18, 1.0).width;
+    draw_text(
+        &volume_text,
+        SCREEN_WIDTH / 2.0 - vol_width / 2.0,
+        SCREEN_HEIGHT / 2.0 + 115.0,
+        18.0,
+        state.theme_colors.primary,
+    );
+
+    // Mute toggle display
+    let mute_text = if state.audio.sfx_enabled {
+        "Press M to Mute"
+    } else {
+        "Press M to Unmute"
+    };
+    let mute_width = measure_text(mute_text, None, 18, 1.0).width;
+    draw_text(
+        mute_text,
+        SCREEN_WIDTH / 2.0 - mute_width / 2.0,
+        SCREEN_HEIGHT / 2.0 + 140.0,
+        18.0,
         state.theme_colors.text,
     );
 }

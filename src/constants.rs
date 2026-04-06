@@ -37,6 +37,17 @@ pub const POWERUP_FALL_SPEED: f32 = 3.0;
 pub const POWERUP_SPAWN_CHANCE: f32 = 0.15; // 15% chance
 pub const POWERUP_DURATION: usize = 60; // frames (1 second at 60 FPS)
 
+// [NEW] Phase 2 extended power-up durations
+pub const POWERUP_LASER_DURATION: usize = 120; // 2 seconds of laser firing
+pub const POWERUP_SHIELD_DURATION: usize = 1; // Single-use (consumed immediately on impact)
+pub const POWERUP_BOMB_DURATION: usize = 1; // Single-use (triggered once)
+pub const POWERUP_MAGNETIZE_DURATION: usize = 180; // 3 seconds stuck mode
+
+// [NEW] Laser constants
+pub const LASER_WIDTH: f32 = 8.0;
+pub const LASER_HEIGHT: f32 = 15.0;
+pub const LASER_SPEED: f32 = 8.0;
+
 // Power-up symbols and descriptions
 pub const POWERUP_MULTIBALL_SYMBOL: &str = "⊕"; // Circle with cross (multiple balls)
 pub const POWERUP_MULTIBALL_LABEL: &str = "M"; // Fallback letter
@@ -44,6 +55,16 @@ pub const POWERUP_EXTEND_SYMBOL: &str = "▬"; // Horizontal bar (paddle extensi
 pub const POWERUP_EXTEND_LABEL: &str = "P"; // Fallback letter
 pub const POWERUP_SLOWTIME_SYMBOL: &str = "◐"; // Half circle (time/slow effect)
 pub const POWERUP_SLOWTIME_LABEL: &str = "S"; // Fallback letter
+
+// [NEW] Phase 2 extended power-up symbols
+pub const POWERUP_LASER_SYMBOL: &str = "↑"; // Up arrow (laser fire)
+pub const POWERUP_LASER_LABEL: &str = "L";
+pub const POWERUP_SHIELD_SYMBOL: &str = "◇"; // Diamond (protection)
+pub const POWERUP_SHIELD_LABEL: &str = "X";
+pub const POWERUP_BOMB_SYMBOL: &str = "◈"; // Diamond with center (explosion)
+pub const POWERUP_BOMB_LABEL: &str = "B";
+pub const POWERUP_MAGNETIZE_SYMBOL: &str = "●"; // Filled circle (magnetic)
+pub const POWERUP_MAGNETIZE_LABEL: &str = "Z";
 
 // Game constants
 pub const STARTING_LIVES: u8 = 3;
