@@ -6,6 +6,25 @@ pub fn render_game(state: &GameState) {
     // Clear background with theme color
     clear_background(state.theme_colors.background);
 
+    // Render screen flash overlay (for chain reactions)
+    if state.screen_flash > 0.0 {
+        draw_rectangle(
+            0.0,
+            0.0,
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT,
+            Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: state.screen_flash,
+            },
+        );
+    }
+
+    // Calculate pulsing factor based on frame count
+    let pulse = ((state.frame_count as f32 * 0.05).sin() + 1.0) / 2.0; // 0.0 to 1.0 oscillating
+
     // Render bricks
     for brick in &state.bricks {
         if brick.active {
@@ -28,6 +47,77 @@ pub fn render_game(state: &GameState) {
                 }
                 BrickType::Regenerating => {
                     render_color.a = 0.8; // Semi-transparent
+                }
+                _ => {}
+            }
+
+            // Draw glow effect for special brick types
+            match brick.brick_type {
+                BrickType::Frozen => {
+                    // Ice blue glow
+                    let glow_color = Color {
+                        r: 0.5,
+                        g: 0.7,
+                        b: 1.0,
+                        a: 0.3,
+                    };
+                    draw_rectangle(
+                        brick.x - 4.0,
+                        brick.y - 4.0,
+                        brick.width + 8.0,
+                        brick.height + 8.0,
+                        glow_color,
+                    );
+                }
+                BrickType::Exploding => {
+                    // Orange-red glow with pulsing
+                    let glow_alpha = 0.2 + pulse * 0.2; // Pulsing 0.2 to 0.4
+                    let glow_color = Color {
+                        r: 1.0,
+                        g: 0.4,
+                        b: 0.0,
+                        a: glow_alpha,
+                    };
+                    draw_rectangle(
+                        brick.x - 4.0,
+                        brick.y - 4.0,
+                        brick.width + 8.0,
+                        brick.height + 8.0,
+                        glow_color,
+                    );
+                }
+                BrickType::Regenerating => {
+                    // Purple glow with pulsing
+                    let glow_alpha = 0.2 + pulse * 0.2;
+                    let glow_color = Color {
+                        r: 0.7,
+                        g: 0.3,
+                        b: 0.9,
+                        a: glow_alpha,
+                    };
+                    draw_rectangle(
+                        brick.x - 4.0,
+                        brick.y - 4.0,
+                        brick.width + 8.0,
+                        brick.height + 8.0,
+                        glow_color,
+                    );
+                }
+                BrickType::Steel => {
+                    // Steel grey glow
+                    let glow_color = Color {
+                        r: 0.6,
+                        g: 0.6,
+                        b: 0.65,
+                        a: 0.2,
+                    };
+                    draw_rectangle(
+                        brick.x - 3.0,
+                        brick.y - 3.0,
+                        brick.width + 6.0,
+                        brick.height + 6.0,
+                        glow_color,
+                    );
                 }
                 _ => {}
             }
@@ -202,6 +292,24 @@ pub fn render_game(state: &GameState) {
     // Render pause overlay if paused
     if state.is_paused {
         render_pause_overlay(state);
+    }
+
+    // Render score popups
+    for popup in &state.score_popups {
+        let alpha = popup.lifetime / popup.max_lifetime;
+        let text = format!("+{}", popup.value);
+        draw_text(
+            &text,
+            popup.x - 10.0,
+            popup.y,
+            20.0,
+            Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: alpha,
+            },
+        );
     }
 
     // Render particle effects

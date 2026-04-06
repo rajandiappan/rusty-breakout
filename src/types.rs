@@ -104,6 +104,15 @@ pub struct LaserShot {
     pub active: bool,
 }
 
+#[derive(Clone, Debug)]
+pub struct ScorePopup {
+    pub x: f32,
+    pub y: f32,
+    pub value: i32,
+    pub lifetime: f32,
+    pub max_lifetime: f32,
+}
+
 #[derive(Debug)]
 pub struct GameState {
     pub level: usize,
@@ -129,6 +138,8 @@ pub struct GameState {
     pub laser_shots: Vec<LaserShot>, // [NEW] Active laser projectiles
     pub audio: AudioManager,         // [NEW] Audio system
     pub gamepad: GamepadInput,       // [NEW] Gamepad/Controller input
+    pub score_popups: Vec<ScorePopup>, // [NEW] Floating score text
+    pub screen_flash: f32,           // [NEW] Screen flash intensity (0.0 = no flash)
 }
 
 impl GameState {
@@ -172,6 +183,8 @@ impl GameState {
             laser_shots: Vec::new(),
             audio: AudioManager::new(),
             gamepad: GamepadInput::new(),
+            score_popups: Vec::new(),
+            screen_flash: 0.0,
         }
     }
 }

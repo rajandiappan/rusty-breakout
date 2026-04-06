@@ -437,12 +437,13 @@ gilrs = "0.10"
 
 ### 13.1 Visual Effects
 
-| Effect | Description | Priority |
-|--------|-------------|----------|
-| Brick Glow | Subtle glow on special brick types | Medium |
-| Particle Trails | Ball trail particles for visibility | Low |
-| Pulsing Animations | Animated effects for Exploding/Frozen bricks | Medium |
-| Screen Flash | Brief flash on chain reactions | Low |
+| Effect | Description | Priority | Status |
+|--------|-------------|----------|--------|
+| Brick Glow | Subtle glow on special brick types | Medium | ✓ Complete |
+| Particle Trails | Ball trail particles for visibility | Low | ✓ Complete |
+| Pulsing Animations | Animated effects for Exploding/Frozen bricks | Medium | ✓ Complete |
+| Screen Flash | Brief flash on chain reactions | Low | ✓ Complete |
+| Score Popups | Floating +10 text on brick destroy | Medium | ✓ Complete |
 
 ### 13.2 Rendering Enhancements
 

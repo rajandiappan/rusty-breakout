@@ -195,6 +195,12 @@ impl ParticleSystem {
         emitter.emit_burst(20, (100.0, 180.0), 0.5, 2.5, color);
         self.add_emitter(emitter);
     }
+
+    pub fn ball_trail(&mut self, x: f32, y: f32, color: Color) {
+        let mut emitter = ParticleEmitter::new(x, y);
+        emitter.emit_burst(2, (10.0, 30.0), 0.3, 0.5, color);
+        self.add_emitter(emitter);
+    }
 }
 
 #[cfg(test)]

@@ -188,6 +188,21 @@ impl Game {
         // Update particle system regardless of pause
         self.state.particle_system.update(1.0 / 60.0);
 
+        // Update score popups
+        for popup in &mut self.state.score_popups {
+            popup.y -= 30.0 * (1.0 / 60.0); // Float upward
+            popup.lifetime -= 1.0 / 60.0;
+        }
+        self.state.score_popups.retain(|p| p.lifetime > 0.0);
+
+        // Update screen flash (decay)
+        if self.state.screen_flash > 0.0 {
+            self.state.screen_flash -= 0.02;
+            if self.state.screen_flash < 0.0 {
+                self.state.screen_flash = 0.0;
+            }
+        }
+
         // Skip game updates if paused
         if self.state.is_paused {
             return;
@@ -278,6 +293,11 @@ impl Game {
             // Update position
             ball.x += ball.vx * slow_time_multiplier;
             ball.y += ball.vy * slow_time_multiplier;
+
+            // Emit ball trail particles
+            if self.state.frame_count % 3 == 0 {
+                self.state.particle_system.ball_trail(ball.x, ball.y, self.state.theme_colors.ball);
+            }
 
             // Wall collisions
             if ball.x <= BALL_RADIUS || ball.x >= SCREEN_WIDTH - BALL_RADIUS {
@@ -409,6 +429,15 @@ impl Game {
                 if crate::physics::check_ball_brick_collision(ball, brick) {
                     bricks_to_destroy.push(idx);
                     self.state.score += BRICK_POINTS;
+                    
+                    // Add floating score popup
+                    self.state.score_popups.push(crate::types::ScorePopup {
+                        x: brick.x + BRICK_WIDTH / 2.0,
+                        y: brick.y + BRICK_HEIGHT / 2.0,
+                        value: BRICK_POINTS as i32,
+                        lifetime: 1.0,
+                        max_lifetime: 1.0,
+                    });
 
                     // [NEW] Play brick destroy sound
                     self.state.audio.play_brick_destroy();
@@ -461,6 +490,7 @@ impl Game {
             if brick.brick_type == BrickType::Exploding {
                 let bx = brick.x + BRICK_WIDTH / 2.0;
                 let by = brick.y + BRICK_HEIGHT / 2.0;
+                let mut chain_count = 0;
                 
                 for (explode_idx, other_brick) in self.state.bricks.iter_mut().enumerate() {
                     if !other_brick.active || explode_idx == idx {
@@ -474,11 +504,17 @@ impl Game {
                     if dist < EXPLODING_RADIUS {
                         other_brick.active = false;
                         self.state.score += BRICK_POINTS;
+                        chain_count += 1;
                         
                         self.state.particle_system.brick_destruction(
                             ox, oy, other_brick.color,
                         );
                     }
+                }
+                
+                // Screen flash on chain reaction
+                if chain_count > 2 {
+                    self.state.screen_flash = 0.3;
                 }
             }
             
