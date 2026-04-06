@@ -373,6 +373,24 @@ If you want to test a debug build first:
 cargo run --release
 ```
 
+## Development & CI
+
+Development work should remain quality-assured with local checks and CI.
+
+- Local checks you can run:
+- cargo check --all-targets --all-features
+- cargo test --all-features -- --nocapture
+- cargo build --release
+- Optional quality checks:
+  - cargo fmt --all -- --check
+  - cargo clippy --all-targets --all-features -- -D warnings
+
+- CI on GitHub:
+  - The repository uses a GitHub Actions workflow at .github/workflows/ci.yml
+  - It runs cargo check, cargo test, and a release build on push and PRs
+  - Logs are available in the Actions tab for each run
+
+
 ## License
 
 This is an educational project based on the classic Breakout/Arkanoid arcade games.
