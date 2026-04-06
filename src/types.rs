@@ -1,5 +1,6 @@
 use crate::achievements::AchievementManager;
 use crate::audio::AudioManager;
+use crate::constants::*;
 use crate::effects::ParticleSystem;
 use crate::gamepad::GamepadInput;
 use crate::settings::{Difficulty, ThemeType};
@@ -124,19 +125,19 @@ impl GameState {
             level: 1,
             score: 0,
             high_score: 0,
-            lives: 3,
+            lives: STARTING_LIVES,
             phase: GamePhase::MainMenu,
             balls: Vec::new(),
             paddle: Paddle {
-                x: 350.0,
-                y: 550.0,
-                width: 100.0,
-                height: 15.0,
-                normal_width: 100.0,
-                extended_width: 150.0,
+                x: (SCREEN_WIDTH - PADDLE_WIDTH) / 2.0,
+                y: PADDLE_Y,
+                width: PADDLE_WIDTH,
+                height: PADDLE_HEIGHT,
+                normal_width: PADDLE_WIDTH,
+                extended_width: PADDLE_EXTENDED_WIDTH,
                 is_extended: false,
                 is_shrunk: false,
-                shrunk_width: 60.0,
+                shrunk_width: PADDLE_WIDTH * 0.6,
                 has_shield: false,
                 magnetized_ball: None,
             },

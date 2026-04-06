@@ -1,3 +1,4 @@
+use crate::constants::POWERUP_SPAWN_CHANCE;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -36,9 +37,9 @@ impl Difficulty {
 
     pub fn powerup_spawn_chance(&self) -> f32 {
         match self {
-            Difficulty::Easy => 0.25,   // 25%
-            Difficulty::Normal => 0.15, // 15%
-            Difficulty::Hard => 0.10,   // 10%
+            Difficulty::Easy => POWERUP_SPAWN_CHANCE * 1.5, // Higher chance for easy
+            Difficulty::Normal => POWERUP_SPAWN_CHANCE,     // 15%
+            Difficulty::Hard => POWERUP_SPAWN_CHANCE * 0.67, // ~10%
         }
     }
 }

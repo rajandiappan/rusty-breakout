@@ -41,9 +41,9 @@ impl Game {
         let speed_multiplier = self.state.difficulty.ball_speed_multiplier();
         let initial_ball = Ball {
             x: SCREEN_WIDTH / 2.0,
-            y: PADDLE_Y - 30.0,
+            y: PADDLE_Y - PADDLE_HEIGHT * 2.0,
             vx: 2.0 * speed_multiplier,
-            vy: -4.0 * speed_multiplier,
+            vy: -BALL_BASE_SPEED * speed_multiplier,
             radius: BALL_RADIUS,
             active: true,
             is_magnetized: false,
@@ -204,7 +204,7 @@ impl Game {
             if ball.is_magnetized {
                 let paddle_center_x = self.state.paddle.x + self.state.paddle.width / 2.0;
                 ball.x = paddle_center_x;
-                ball.y = PADDLE_Y - 15.0;
+                ball.y = PADDLE_Y - PADDLE_HEIGHT;
                 ball.vx = 0.0;
                 ball.vy = 0.0;
                 
@@ -275,9 +275,9 @@ impl Game {
                 let speed_multiplier = self.state.difficulty.ball_speed_multiplier();
                 let initial_ball = Ball {
                     x: SCREEN_WIDTH / 2.0,
-                    y: PADDLE_Y - 30.0,
+                    y: PADDLE_Y - PADDLE_HEIGHT * 2.0,
                     vx: 2.0 * speed_multiplier,
-                    vy: -4.0 * speed_multiplier,
+                    vy: -BALL_BASE_SPEED * speed_multiplier,
                     radius: BALL_RADIUS,
                     active: true,
                     is_magnetized: false,
