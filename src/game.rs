@@ -33,6 +33,7 @@ impl Game {
         self.state.bricks = level::create_level_bricks(level_num);
         self.state.powerups.clear();
         self.state.active_powerups.clear();
+        self.state.laser_shots.clear();
 
         // Apply difficulty multiplier to ball speed
         let speed_multiplier = self.state.difficulty.ball_speed_multiplier();
@@ -43,6 +44,7 @@ impl Game {
             vy: -4.0 * speed_multiplier,
             radius: BALL_RADIUS,
             active: true,
+            is_magnetized: false,
         };
         self.state.balls = vec![initial_ball];
 
@@ -52,6 +54,8 @@ impl Game {
         self.state.paddle.width = paddle_width;
         self.state.paddle.normal_width = paddle_width;
         self.state.paddle.is_extended = false;
+        self.state.paddle.has_shield = false;
+        self.state.paddle.magnetized_ball = None;
     }
 
     pub async fn update(&mut self) {
@@ -134,6 +138,23 @@ impl Game {
                 continue;
             }
 
+            // [NEW] Handle magnetized balls (stick to paddle)
+            if ball.is_magnetized {
+                let paddle_center_x = self.state.paddle.x + self.state.paddle.width / 2.0;
+                ball.x = paddle_center_x;
+                ball.y = PADDLE_Y - 15.0;
+                ball.vx = 0.0;
+                ball.vy = 0.0;
+                
+                // Release on spacebar
+                if is_key_pressed(KeyCode::Space) {
+                    ball.is_magnetized = false;
+                    ball.vx = 2.0;
+                    ball.vy = -4.0;
+                }
+                continue; // Skip normal physics for magnetized ball
+            }
+
             // Apply slow time power-up effect
             let speed_multiplier = if self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::SlowTime) {
                 0.5
@@ -156,26 +177,50 @@ impl Game {
                 ball.y = BALL_RADIUS;
             }
 
-            // Bottom (lose life)
+            // Bottom (mark as lost, but don't lose life yet)
             if ball.y > SCREEN_HEIGHT {
                 ball.active = false;
-                self.state.lives -= 1;
+            }
+        }
 
-                if self.state.lives == 0 {
-                    self.state.phase = GamePhase::GameOver;
-                } else {
-                    // Reset ball
-                    ball.x = SCREEN_WIDTH / 2.0;
-                    ball.y = PADDLE_Y - 30.0;
-                    ball.vx = 2.0;
-                    ball.vy = -4.0;
-                    ball.active = true;
-                }
+        // [NEW] Handle laser firing
+        if self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::Laser) {
+            // Fire laser from paddle every frame when active
+            if self.state.frame_count % 6 == 0 {  // Fire every 6 frames (10 shots/sec)
+                self.state.laser_shots.push(crate::types::LaserShot {
+                    x: self.state.paddle.x + self.state.paddle.width / 2.0 - LASER_WIDTH / 2.0,
+                    y: PADDLE_Y - LASER_HEIGHT,
+                    width: LASER_WIDTH,
+                    height: LASER_HEIGHT,
+                    active: true,
+                });
             }
         }
 
         // Remove inactive balls
         self.state.balls.retain(|b| b.active);
+        
+        // Only lose 1 life when ALL balls are gone
+        if self.state.balls.is_empty() {
+            self.state.lives -= 1;
+
+            if self.state.lives == 0 {
+                self.state.phase = GamePhase::GameOver;
+            } else {
+                // Reset with 1 ball
+                let speed_multiplier = self.state.difficulty.ball_speed_multiplier();
+                let initial_ball = Ball {
+                    x: SCREEN_WIDTH / 2.0,
+                    y: PADDLE_Y - 30.0,
+                    vx: 2.0 * speed_multiplier,
+                    vy: -4.0 * speed_multiplier,
+                    radius: BALL_RADIUS,
+                    active: true,
+                    is_magnetized: false,
+                };
+                self.state.balls = vec![initial_ball];
+            }
+        }
     }
 
     fn update_powerups(&mut self) {
@@ -212,6 +257,9 @@ impl Game {
         // Check ball-paddle collisions
         for ball in &mut self.state.balls {
             if crate::physics::check_ball_paddle_collision(ball, &mut self.state.paddle) {
+                // [NEW] Play paddle hit sound
+                self.state.audio.play_paddle_hit();
+                
                 // Emit particles on paddle hit
                 self.state.particle_system.paddle_hit(
                     ball.x,
@@ -232,6 +280,9 @@ impl Game {
                     bricks_to_destroy.push(idx);
                     self.state.score += BRICK_POINTS;
 
+                    // [NEW] Play brick destroy sound
+                    self.state.audio.play_brick_destroy();
+
                     // Emit particles on brick destruction
                     self.state.particle_system.brick_destruction(
                         brick.x + BRICK_WIDTH / 2.0,
@@ -243,10 +294,14 @@ impl Game {
                     let spawn_chance = self.state.difficulty.powerup_spawn_chance();
                     let spawn_rand = ((self.state.frame_count as f32 * 12.347 + idx as f32 * 53.891) % 100.0) / 100.0;
                     if spawn_rand < spawn_chance {
-                        let power_type = match (self.state.frame_count + idx) % 3 {
+                        let power_type = match (self.state.frame_count + idx) % 7 {
                             0 => PowerUpType::MultiBall,
                             1 => PowerUpType::PaddleExtend,
-                            _ => PowerUpType::SlowTime,
+                            2 => PowerUpType::SlowTime,
+                            3 => PowerUpType::Laser,      // [NEW]
+                            4 => PowerUpType::Shield,     // [NEW]
+                            5 => PowerUpType::Bomb,       // [NEW]
+                            _ => PowerUpType::Magnetize,  // [NEW]
                         };
                         
                         // Emit particles for power-up spawn
@@ -281,6 +336,9 @@ impl Game {
             if crate::physics::check_powerup_pickup(powerup, &self.state.paddle) {
                 powerup.active = false;
                 
+                // [NEW] Play power-up pickup sound
+                self.state.audio.play_powerup_pickup();
+                
                 // Emit particles for power-up pickup
                 self.state.particle_system.power_up_pickup(
                     powerup.x,
@@ -294,6 +352,72 @@ impl Game {
         
         for power_type in powerups_to_apply {
             self.apply_powerup(power_type);
+        }
+
+        // [NEW] Handle laser collisions with bricks
+        let mut lasers_to_remove = Vec::new();
+        for (laser_idx, laser) in self.state.laser_shots.iter_mut().enumerate() {
+            if !laser.active {
+                continue;
+            }
+
+            // Move laser up
+            laser.y -= LASER_SPEED;
+
+            // Remove if off-screen
+            if laser.y < 0.0 {
+                laser.active = false;
+                continue;
+            }
+
+            // Check collisions with bricks
+            for brick in self.state.bricks.iter_mut() {
+                if !brick.active {
+                    continue;
+                }
+
+                // Simple rect-rect collision
+                if laser.x < brick.x + brick.width
+                    && laser.x + laser.width > brick.x
+                    && laser.y < brick.y + brick.height
+                    && laser.y + laser.height > brick.y
+                {
+                    brick.active = false;
+                    self.state.score += BRICK_POINTS;
+                    laser.active = false;
+                    lasers_to_remove.push(laser_idx);
+
+                    // Emit particles
+                    self.state.particle_system.brick_destruction(
+                        brick.x + BRICK_WIDTH / 2.0,
+                        brick.y + BRICK_HEIGHT / 2.0,
+                        brick.color,
+                    );
+                    break;
+                }
+            }
+        }
+
+        self.state.laser_shots.retain(|l| l.active);
+
+        // [NEW] Handle shield - catch falling balls
+        if self.state.paddle.has_shield {
+            for ball in &mut self.state.balls {
+                if ball.y > PADDLE_Y && ball.y < SCREEN_HEIGHT {
+                    // Ball hit the shield - restore it and remove shield
+                    ball.active = true;
+                    ball.vy = -4.0;
+                    self.state.paddle.has_shield = false;
+                    
+                    // Emit particles
+                    self.state.particle_system.power_up_pickup(
+                        ball.x,
+                        ball.y,
+                        self.state.theme_colors.accent,
+                    );
+                    break;
+                }
+            }
         }
     }
 
@@ -332,6 +456,58 @@ impl Game {
                 });
                 self.state.achievements.increment_progress(crate::achievements::AchievementId::TimeBender, 1);
             }
+            PowerUpType::Laser => {
+                // [NEW] Activate laser mode
+                self.state.active_powerups.push(crate::types::ActivePowerUp {
+                    power_type,
+                    remaining_frames: POWERUP_LASER_DURATION,
+                });
+            }
+            PowerUpType::Shield => {
+                // [NEW] Grant shield to paddle
+                self.state.paddle.has_shield = true;
+            }
+            PowerUpType::Bomb => {
+                // [NEW] Trigger bomb explosion at paddle position
+                self.trigger_bomb_explosion();
+            }
+            PowerUpType::Magnetize => {
+                // [NEW] Magnetize the first ball to the paddle
+                if !self.state.balls.is_empty() {
+                    self.state.balls[0].is_magnetized = true;
+                    self.state.active_powerups.push(crate::types::ActivePowerUp {
+                        power_type,
+                        remaining_frames: POWERUP_MAGNETIZE_DURATION,
+                    });
+                }
+            }
+        }
+    }
+
+    fn trigger_bomb_explosion(&mut self) {
+        // Destroy all bricks in 3x3 area around paddle position
+        let paddle_center_x = self.state.paddle.x + self.state.paddle.width / 2.0;
+        let bomb_radius = 90.0; // 3 brick widths
+        
+        for brick in &mut self.state.bricks {
+            if !brick.active {
+                continue;
+            }
+            let brick_center_x = brick.x + BRICK_WIDTH / 2.0;
+            let brick_center_y = brick.y + BRICK_HEIGHT / 2.0;
+            let dx = (brick_center_x - paddle_center_x).abs();
+            let dy = (brick_center_y - PADDLE_Y).abs();
+            
+            // Check if brick is in explosion radius
+            if dx < bomb_radius && dy < bomb_radius * 1.5 {
+                brick.active = false;
+                self.state.score += BRICK_POINTS;
+                self.state.particle_system.brick_destruction(
+                    brick_center_x,
+                    brick_center_y,
+                    brick.color,
+                );
+            }
         }
     }
 
@@ -343,6 +519,9 @@ impl Game {
             self.state.score += LEVEL_COMPLETE_BONUS;
             self.state.level_complete_timer = 120; // 2 seconds
             
+            // [NEW] Play level complete sound
+            self.state.audio.play_level_complete();
+            
             // Track level completion for speedrunner achievement
             self.state.achievements.increment_progress(crate::achievements::AchievementId::Speedrunner, 1);
         }
@@ -351,6 +530,9 @@ impl Game {
         if self.state.balls.is_empty() && self.state.phase == GamePhase::Playing {
             self.state.lives = 0;
             self.state.phase = GamePhase::GameOver;
+            
+            // [NEW] Play game over sound
+            self.state.audio.play_game_over();
         }
     }
 
@@ -364,6 +546,9 @@ impl Game {
             } else {
                 self.state.phase = GamePhase::Victory;
                 self.state.score += ALL_LEVELS_BONUS;
+                
+                // [NEW] Play victory sound
+                self.state.audio.play_victory();
                 
                 // Check for PerfectClear (beat all levels without losing a life)
                 if self.state.lives == 3 {

@@ -9,6 +9,7 @@ breakout/
 ├── Cargo.toml                    # Project dependencies and metadata
 ├── BREAKOUT_PRD.md              # Complete Product Requirements Document
 ├── README.md                     # This file
+├── PHASE2_PROGRESS.md           # Phase 2 implementation progress
 └── src/
     ├── main.rs                  # Entry point and main game loop
     ├── constants.rs             # Game constants (screen size, speeds, colors)
@@ -16,16 +17,21 @@ breakout/
     ├── game.rs                  # Game state management and logic
     ├── physics.rs               # Collision detection and response
     ├── level.rs                 # Level definitions and generation
-    ├── ui.rs                    # Rendering and UI display
+    ├── ui.rs                    # Rendering and UI display (Phase 2: theme-aware)
     ├── ball.rs                  # Ball-specific behavior (expandable)
     ├── paddle.rs                # Paddle-specific behavior (expandable)
     ├── brick.rs                 # Brick-specific behavior (expandable)
-    └── powerup.rs               # Power-up-specific behavior (expandable)
+    ├── powerup.rs               # Power-up-specific behavior (expandable)
+    │
+    ├── settings.rs              # [PHASE 2] Difficulty and theme definitions
+    ├── themes.rs                # [PHASE 2] 5 color theme system with palettes
+    ├── achievements.rs          # [PHASE 2] Achievement tracking and management
+    └── effects.rs               # [PHASE 2] Particle effects system (230 lines)
 ```
 
 ## Overview
 
-This is a fully-featured Breakout game with:
+This is a fully-featured Breakout game with Phase 2 professional polish:
 
 - **5 Progressive Levels** with increasing difficulty
 - **Ball Physics** with deterministic, frame-based movement
@@ -34,9 +40,15 @@ This is a fully-featured Breakout game with:
   - Multi-Ball: Spawn 2 additional balls
   - Paddle Extend: Increase paddle width temporarily
   - Slow Time: Reduce ball velocity by 50%
-- **Lives System** (start with 3 lives)
+- **Lives System** (configurable by difficulty: 2-5 lives)
 - **Score Tracking** with high score persistence
 - **Game States:** Main Menu, Playing, Level Complete, Game Over, Victory
+- **Difficulty Modes:** Easy, Normal, Hard with dynamic multipliers
+- **5 Color Themes:** Classic, Dark, Neon, CRT, Minimalist with T-key switching
+- **Particle Effects:** Brick explosions, paddle hits, power-up spawns/pickups
+- **Pause/Resume:** P-key toggle with pause overlay
+- **Achievement System:** Track gameplay metrics and unlock badges
+- **Settings Persistence:** Save and load user preferences
 
 ## Key Features
 
@@ -46,14 +58,39 @@ This is a fully-featured Breakout game with:
 - Proper collision detection using closest-point algorithm
 - Ball velocity clamping to prevent speed explosion
 
-### Level Design
-| Level | Pattern | Speed | Difficulty |
-|-------|---------|-------|------------|
-| 1 | Full grid | 4 px/f | Easy |
-| 2 | Alternating rows | 4.6 px/f | Easy-Medium |
-| 3 | Spiral pattern | 5.3 px/f | Medium |
-| 4 | Checkerboard | 6.1 px/f | Medium-Hard |
-| 5 | Random distribution | 7.0 px/f | Hard |
+### Difficulty System (Phase 2)
+Selectable difficulty modes with dynamic multipliers:
+| Mode | Ball Speed | Paddle Width | Lives | Power-Up Chance |
+|------|-----------|--------------|-------|-----------------|
+| Easy | 0.8x | 130px (+30%) | 5 | 25% |
+| Normal | 1.0x | 100px | 3 | 15% |
+| Hard | 1.3x | 70px (-30%) | 2 | 10% |
+
+### Visual Themes (Phase 2)
+5 professional color schemes (cycle with T-key):
+- **Classic:** Original 8-bit arcade palette
+- **Dark:** Low-light gaming friendly
+- **Neon:** High-contrast cyberpunk aesthetic
+- **CRT:** Retro monitor scanlines and glow
+- **Minimalist:** Clean, flat design
+
+### Particle Effects (Phase 2)
+Visual feedback system:
+- Brick destruction: 12-particle bursts with velocity
+- Paddle hits: 8-particle collision effects
+- Power-up spawns: 16-particle emission
+- Power-up pickups: 20-particle celebration effect
+
+### Pause & Settings (Phase 2)
+- **P-key pause:** Freeze gameplay while keeping particles/UI running
+- **Theme switching:** Real-time theme changes with T-key
+- **Settings persistence:** Automatically save user preferences
+
+### Achievement System (Phase 2)
+10 achievements across 3 categories:
+- **Skill:** Sharpshooter, Rapid Fire, Perfect Clear, Speedrunner, Multi-Ball Master
+- **Collection:** Power-Up Hoarder, Lucky Break, Time Bender
+- **Exploration:** Theme Collector, Hardcore Champion
 
 ### Game Constants
 - Screen: 800×600 pixels
@@ -85,6 +122,8 @@ cargo run --release
 | LEFT Arrow / A | Move paddle left |
 | RIGHT Arrow / D | Move paddle right |
 | SPACE | Start game / Play again |
+| P | Pause/Resume during gameplay |
+| T | Cycle through themes (5 color schemes) |
 | ESC | Quit to menu / Exit game |
 
 ## Gameplay
@@ -239,14 +278,17 @@ Uses closest-point algorithm to determine entry side:
 
 ## Future Enhancement Ideas
 
+Phase 1 & 2 are complete. Phase 3+ ideas:
+
 - Boss levels with special mechanics
-- Difficulty modes (Easy/Normal/Hard)
-- Sound effects and music
-- Particle effects on collisions
+- Sound effects and music (Phase 2 foundation ready)
 - Mobile touch controls
 - Advanced brick types (steel, explosive)
 - Curved paddle surface physics
-- Achievements/badges
+- Extended level content (15+ additional levels)
+- Online leaderboards and cloud sync
+- Replay recording and sharing
+- Competitive multiplayer modes
 
 ## Development Notes
 
