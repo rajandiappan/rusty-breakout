@@ -171,15 +171,25 @@ All colors chosen for:
 You see gold ⊕ falling     → "Grab it for 2 extra balls!"
 You see green ▬ falling    → "Safe choice, wider paddle"
 You see purple ◐ falling   → "Regain control, slow down"
+You see cyan ↑ falling     → "Offensive, clear bricks fast"
+You see orange ◇ falling   → "Save a life, catch falling ball"
+You see red ◈ falling       → "Big explosion, clear area!"
+You see magenta ● falling   → "Stick ball to paddle"
+You see dark red ◈ falling  → "Avoid! Paddle will shrink"
 ```
 
 ### Strategy Guide
 
 | Symbol | Situation | Recommendation |
 |--------|-----------|-----------------|
-| ⊕ | Low lives | Risky, but more chances |
-| ▬ | Fast ball | Safe choice, easier catch |
-| ◐ | Many balls | Use to avoid losing all |
+| ⊕ | Low lives / many bricks | Risky but more chances to score |
+| ▬ | Fast ball / hard shots | Safe choice, easier to catch |
+| ◐ | Many balls / chaos | Use to regain control |
+| ↑ | Lots of bricks | Clear bricks quickly |
+| ◇ | Near death / no balls | Catch falling ball to survive |
+| ◈ (Red) | Clustered bricks | Destroy large area |
+| ● | Lost ball / need setup | Stick ball for precise aim |
+| ◈ (Dark) | - | Avoid - makes paddle smaller |
 
 ---
 
@@ -233,15 +243,20 @@ Slow Time:
 **Font Size:** 18 pixels  
 **Update:** Every frame
 
-```
-Examples:
+Only timed power-ups appear in HUD:
 
-⊕ 60        (Multi-Ball, 60 frames left)
-▬ 45        (Paddle Extend, 45 frames left)
-◐ 30        (Slow Time, 30 frames left)
-
-⊕ 15        (About to expire!)
 ```
+Examples (timed power-ups only):
+
+◐ 60        (Slow Time, 60 frames left)
+↑ 120       (Laser, 120 frames left)
+● 180       (Magnetize, 180 frames left)
+
+◐ 15        (About to expire!)
+```
+
+Non-timed power-ups (MultiBall, PaddleExtend, Shield, Bomb, PaddleShrink) 
+do not appear in HUD - their effects are permanent or instant.
 
 ### Frame Countdown
 
@@ -377,25 +392,40 @@ Purple ◐ = Recognized in ~100ms
 
 ---
 
-## Testing the Symbols
+## Testing the Power-Ups
 
 ### What To Look For:
 
 1. **Falling Power-Ups**
-   - [ ] Gold ⊕ appears when catching = Multi-Ball
-   - [ ] Green ▬ appears when catching = Extend
-   - [ ] Purple ◐ appears when catching = Slow
+   - [ ] Gold ⊕ appears = Multi-Ball (+2 balls, up to 3 max)
+   - [ ] Green ▬ appears = Paddle Extend (1.5x width, until life lost)
+   - [ ] Purple ◐ appears = Slow Time (50% speed, 60 frames)
+   - [ ] Cyan ↑ appears = Laser (fire beams, 120 frames)
+   - [ ] Orange ◇ appears = Shield (catch ball, stacks)
+   - [ ] Red ◈ appears = Bomb (destroy 3x3 area)
+   - [ ] Magenta ● appears = Magnetize (stick ball, 180 frames)
+   - [ ] Dark Red ◈ appears = Paddle Shrink (60% width, avoid!)
 
-2. **Active Display**
-   - [ ] Bottom-left shows active symbols
+2. **Active Display (HUD)**
+   - [ ] Timed power-ups show in bottom-left with countdown
+   - [ ] ◐ (SlowTime), ↑ (Laser), ● (Magnetize) show frames
    - [ ] Colors match the falling power-ups
-   - [ ] Timer counts down correctly
 
-3. **Visual Clarity**
-   - [ ] All symbols are clearly visible
-   - [ ] Colors are vibrant and distinct
-   - [ ] White borders provide contrast
-   - [ ] HUD text is readable
+3. **Stacking Behavior**
+   - [ ] Collect ◐ while active → timer extends (+60)
+   - [ ] Collect ↑ while active → timer refreshes to 120
+   - [ ] Collect ● while active → timer extends (+180)
+   - [ ] Collect ◇ while active → shield count increases
+
+4. **Expiration Behavior**
+   - [ ] ◐ expires → ball speed returns to 100%
+   - [ ] ↑ expires → laser firing stops
+   - [ ] ● expires → magnetized ball auto-releases
+
+5. **Life Lost Reset**
+   - [ ] On life lost → paddle resets to normal width
+   - [ ] On life lost → shield count resets to 0
+   - [ ] On life lost → all timed power-ups expire
 
 ---
 

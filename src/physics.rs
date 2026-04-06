@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::types::{Ball, Brick, BrickType, Paddle, PowerUp, PowerUpType};
+use crate::types::{Ball, Brick, BrickType, Paddle, PowerUp};
 
 pub fn check_ball_brick_collision(ball: &mut Ball, brick: &mut Brick) -> bool {
     if !brick.active {
