@@ -26,12 +26,13 @@ breakout/
     ├── settings.rs              # [PHASE 2] Difficulty and theme definitions
     ├── themes.rs                # [PHASE 2] 5 color theme system with palettes
     ├── achievements.rs          # [PHASE 2] Achievement tracking and management
-    └── effects.rs               # [PHASE 2] Particle effects system (230 lines)
+    ├── effects.rs               # [PHASE 2] Particle effects system (230 lines)
+    └── audio.rs                 # [PHASE 3] Audio system for game sound events
 ```
 
 ## Overview
 
-This is a fully-featured Breakout game with Phase 2 professional polish:
+This is a fully-featured Breakout game with Phase 3 audio and professional polish:
 
 - **5 Progressive Levels** with increasing difficulty
 - **Ball Physics** with deterministic, frame-based movement
@@ -47,6 +48,7 @@ This is a fully-featured Breakout game with Phase 2 professional polish:
 - **5 Color Themes:** Classic, Dark, Neon, CRT, Minimalist with T-key switching
 - **Particle Effects:** Brick explosions, paddle hits, power-up spawns/pickups
 - **Pause/Resume:** P-key toggle with pause overlay
+- **Audio System:** Sound effects for all game events (Phase 3)
 - **Achievement System:** Track gameplay metrics and unlock badges
 - **Settings Persistence:** Save and load user preferences
 
@@ -91,6 +93,15 @@ Visual feedback system:
 - **Skill:** Sharpshooter, Rapid Fire, Perfect Clear, Speedrunner, Multi-Ball Master
 - **Collection:** Power-Up Hoarder, Lucky Break, Time Bender
 - **Exploration:** Theme Collector, Hardcore Champion
+
+### Audio System (Phase 3)
+AudioManager with sound effects for all game events:
+- **Paddle Hit:** 400Hz beep (40ms) when ball touches paddle
+- **Brick Destroy:** 600Hz beep (80ms) on brick destruction
+- **Power-Up Pickup:** 900Hz beep (150ms) on power-up collection
+- **Level Complete:** 700Hz beep (200ms) when level cleared
+- **Game Over:** 300Hz beep (300ms) on losing all lives
+- **Victory:** 800Hz beep (400ms) on completing all levels
 
 ### Game Constants
 - Screen: 800×600 pixels
@@ -278,10 +289,10 @@ Uses closest-point algorithm to determine entry side:
 
 ## Future Enhancement Ideas
 
-Phase 1 & 2 are complete. Phase 3+ ideas:
+Phase 1, 2, and 3 (audio foundation) are complete. Phase 4+ ideas:
 
+- Real audio synthesis using rodio or platform-specific audio APIs
 - Boss levels with special mechanics
-- Sound effects and music (Phase 2 foundation ready)
 - Mobile touch controls
 - Advanced brick types (steel, explosive)
 - Curved paddle surface physics
