@@ -40,6 +40,7 @@ pub fn render_game(state: &GameState) {
                 PowerUpType::Shield => ORANGE,     // [NEW]
                 PowerUpType::Bomb => RED,          // [NEW]
                 PowerUpType::Magnetize => MAGENTA, // [NEW]
+                PowerUpType::PaddleShrink => RED,  // [NEW] Power-down - red/dark color
             };
             draw_rectangle(
                 powerup.x - POWERUP_WIDTH / 2.0,
@@ -58,6 +59,7 @@ pub fn render_game(state: &GameState) {
                 PowerUpType::Shield => (POWERUP_SHIELD_SYMBOL, POWERUP_SHIELD_LABEL), // [NEW]
                 PowerUpType::Bomb => (POWERUP_BOMB_SYMBOL, POWERUP_BOMB_LABEL),    // [NEW]
                 PowerUpType::Magnetize => (POWERUP_MAGNETIZE_SYMBOL, POWERUP_MAGNETIZE_LABEL), // [NEW]
+                PowerUpType::PaddleShrink => (POWERUP_SHRINK_SYMBOL, POWERUP_SHRINK_LABEL), // [NEW]
             };
 
             // Draw border around power-up
@@ -125,6 +127,7 @@ pub fn render_game(state: &GameState) {
             PowerUpType::Shield => (POWERUP_SHIELD_SYMBOL, POWERUP_SHIELD_LABEL), // [NEW]
             PowerUpType::Bomb => (POWERUP_BOMB_SYMBOL, POWERUP_BOMB_LABEL),    // [NEW]
             PowerUpType::Magnetize => (POWERUP_MAGNETIZE_SYMBOL, POWERUP_MAGNETIZE_LABEL), // [NEW]
+            PowerUpType::PaddleShrink => (POWERUP_SHRINK_SYMBOL, POWERUP_SHRINK_LABEL), // [NEW] (shouldn't appear as timed)
         };
         let color = match active.power_type {
             PowerUpType::MultiBall => state.theme_colors.accent,
@@ -134,6 +137,7 @@ pub fn render_game(state: &GameState) {
             PowerUpType::Shield => ORANGE,     // [NEW]
             PowerUpType::Bomb => RED,          // [NEW]
             PowerUpType::Magnetize => MAGENTA, // [NEW]
+            PowerUpType::PaddleShrink => RED,  // [NEW] (shouldn't appear as timed)
         };
 
         // Draw symbol and timer

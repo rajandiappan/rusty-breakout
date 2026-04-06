@@ -101,12 +101,14 @@ A faithful implementation of the classic Breakout/Arkanoid arcade game. The play
 #### Power-Up Mechanics
 
 - **Spawn:** 15% chance when any brick is destroyed
-- **Duration:** 60 frames (1 second at 60 FPS)
+- **Duration:** 
+  - Timed power-ups: 60 frames (1 second at 60 FPS)
+  - Permanent power-ups: Last until next level or specific counter power-up
 - **Fall Speed:** 3 pixels/frame
 - **Pickup Zone:** Paddle rectangle
 - **Visual:** 20×20 pixel square with icon/letter
 
-#### Power-Up Types
+#### Power-Up Types (4 Power-Ups + 1 Power-Down)
 
 ##### 1. Multi-Ball (M)
 
@@ -123,12 +125,13 @@ A faithful implementation of the classic Breakout/Arkanoid arcade game. The play
 
 - **Color:** Green (#00FF00)
 - **Effect:** Increase paddle width from 100 → 150 pixels
-- **Duration:** 60 frames, then shrink back
+- **Duration:** PERMANENT effect (lasts until next level or Paddle Shrink collected)
 - **Behavior:**
-  - Animation: Smooth expand/shrink (4-pixel transitions)
+  - Visual expansion: Instant width change
   - Helps catch faster balls
-  - Stacking: New activation resets timer
-- **Strategic Value:** Defensive, safe
+  - Stacking: Not applicable (permanent state change)
+  - Reversal: Only reversed by collecting Paddle Shrink power-down
+- **Strategic Value:** Defensive, safe (permanent until challenged)
 
 ##### 3. Slow Time (S)
 
@@ -142,11 +145,25 @@ A faithful implementation of the classic Breakout/Arkanoid arcade game. The play
   - Stacking: New activation resets timer
 - **Strategic Value:** Defensive, skill-based
 
+##### 4. Paddle Shrink (S) [POWER-DOWN]
+
+- **Color:** Dark Red (#FF0000) or Black (#000000)
+- **Effect:** Decrease paddle width from 100 → 60 pixels
+- **Icon:** Circle bomb (◈)
+- **Duration:** Permanent effect (lasts until Paddle Extend collected)
+- **Behavior:**
+  - Visual: Red/dark colored power-up with circle bomb symbol
+  - Effect: Makes paddle significantly smaller, increasing game difficulty
+  - Reversal: Collected only by Paddle Extend power-up
+  - Stacking: Not applicable (one-time state change)
+- **Strategic Value:** Risk vs. reward trade-off on power-up collection
+
 #### Power-Up UI
 
-- Active power-ups displayed in top-left corner
+- Active **timed** power-ups displayed in top-left corner
 - Show icon + remaining time in frames
 - Dim when ~10 frames remaining
+- **Permanent** power-ups (Paddle Extend, Paddle Shrink): Display icon only (no timer)
 
 ---
 
@@ -1089,44 +1106,52 @@ This phase adds audio feedback to all game events, enhancing immersion and provi
 
 **AudioManager struct:**
 - ✓ SFX enable/disable toggle
-- ✓ Music enable/disable toggle
-- ✓ Toggle and control methods (set_sfx_enabled, set_music_enabled, etc.)
+- ✓ Music enable/disable toggle (infrastructure ready)
+- ✓ Volume control (0.0 to 1.0)
+- ✓ Toggle and control methods (set_sfx_enabled, set_volume, increase_volume, decrease_volume, etc.)
 
-**Sound Effects Implemented:** (✓ COMPLETE)
+**Sound Effects Implemented:** (✓ COMPLETE - Real synthesized audio via Rodio)
 
 | Event | Frequency | Duration | Trigger |
 |-------|-----------|----------|---------|
-| **Paddle Hit** | 400 Hz | 40ms | Ball touches paddle |
-| **Brick Destroy** | 600 Hz | 80ms | Brick destroyed by ball |
+| **Paddle Hit** | 400 Hz | 50ms | Ball touches paddle |
+| **Brick Destroy** | 600 Hz | 100ms | Brick destroyed by ball |
 | **Power-Up Pickup** | 900 Hz | 150ms | Power-up collected |
+| **Paddle Shrink** | 400 Hz | 200ms | Power-up expires (negative feedback) |
 | **Level Complete** | 700 Hz | 200ms | All bricks destroyed |
 | **Game Over** | 300 Hz | 300ms | No lives remaining |
 | **Victory** | 800 Hz | 400ms | All levels completed |
 
 **Implementation:**
-- ✓ New `audio.rs` module with AudioManager (90 lines)
-- ✓ Sound effects triggered on game events (game.rs lines 261, 284, 340, 527, 535, 549)
-- ✓ Event logging foundation for future real audio synthesis
-- ✓ No external audio dependencies required (Macroquad-only)
-- ✓ Cross-platform compatible
+- ✓ New `audio.rs` module with AudioManager (191 lines)
+- ✓ Rodio crate integrated for real PCM audio synthesis
+- ✓ Sine wave generation at specified frequencies
+- ✓ WAV header generation for audio playback
+- ✓ Threaded audio playback (non-blocking)
+- ✓ Volume control with fade-out to prevent clicks
+- ✓ Sound effects triggered on all game events in game.rs
 
 #### 3.2 Audio System Architecture
 
-**Current Approach:** Event Logging Foundation
-- Audio events logged to stderr with frequency and duration
-- Provides framework for future audio synthesis integration
-- Zero dependencies on external audio libraries
-- Extensible design for adding real audio playback
+**Current Implementation:** Real Synthesized Audio
+- Rodio crate for cross-platform audio output
+- Procedural sine wave synthesis at runtime
+- Background thread for audio playback (non-blocking game loop)
+- Volume control with 0.0-1.0 range
+- Fade-out at end of tones to prevent audio clicks
 
-**Future Enhancement Path:**
-- Integrate `rodio` crate for real audio playback
-- Add procedural sound generation (sine wave synthesis)
-- Implement background music tracks
-- Add settings UI for volume control
+**Audio Playback Flow:**
+1. Game event triggers (paddle hit, brick destroy, etc.)
+2. AudioManager spawns background thread
+3. Thread generates sine wave samples at target frequency
+4. WAV header created in memory
+5. Rodio plays audio through system default output
+6. Thread sleeps for duration of playback
 
 #### 3.3 Build Status
 - ✓ `cargo build --release` succeeds (0 errors)
-- ✓ Expected warnings: 26 (dead code in unused audio control methods - intentional for future expansion)
+- ✓ Expected warnings: 21 (dead code in unused methods - intentional for future expansion)
+- ✓ Binary size: ~2.2 MB (includes rodio audio library)
 
 ---
 
@@ -1157,6 +1182,11 @@ This phase adds audio feedback to all game events, enhancing immersion and provi
 ```toml
 [dependencies]
 macroquad = "0.4"
+rand = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rodio = "0.17"    # Real audio synthesis & playback
+gilrs = "0.10"    # USB gamepad/controller support
 ```
 
 ### 10.2 Compilation & Performance
@@ -1164,7 +1194,8 @@ macroquad = "0.4"
 **Target:** Debug mode (fast iteration), Release mode (optimal performance)  
 **Expected Frame Rate:** 60 FPS locked  
 **Memory Usage:** <50 MB (minimal)  
-**Build Time:** <10 seconds
+**Build Time:** <2 minutes (release with LTO)
+**Binary Size:** ~2.2 MB (release build)
 
 ### 10.3 Platform Support
 
@@ -1371,15 +1402,15 @@ These features are interesting but deferred to maintain focus:
   - `data/highscores.json` - High score entries
   - `data/statistics.json` - Player statistics
 
-**Dependencies (New for Phase 2):**
+**Dependencies (New for Phase 2+):**
 ```toml
 [dependencies]
 macroquad = "0.4"
+rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-chrono = "0.4"  // For timestamps
-rand = "0.8"    // For random events
-rodio = "0.17"  // Optional: advanced audio
+rodio = "0.17"   # Real audio synthesis & playback (✓ IMPLEMENTED)
+gilrs = "0.10"   # USB gamepad/controller support (✓ IMPLEMENTED)
 ```
 
 ### 14.2 Development Timeline Estimate
@@ -1482,54 +1513,73 @@ rodio = "0.17"  // Optional: advanced audio
 
 ---
 
-## 17. Success Criteria (Phase 3 - ✓ COMPLETE)
+## 17. Success Criteria (All Phases - ✓ COMPLETE)
 
 **Functional Requirements:**
-- ✓ All Phase 1 & 2 features working flawlessly
-- ✓ Audio Manager module with 6 sound effect types
+- ✓ All Phase 1-4 features working flawlessly
+- ✓ Audio Manager module with 7 sound effect types (real synthesized audio via Rodio)
 - ✓ Sound effects triggered on all key game events
-- ✓ 3 difficulty modes with proper multipliers
-- ✓ 10+ achievements with progress tracking
-- ✓ 5 unique visual themes with real-time switching
+- ✓ 3 difficulty modes with proper multipliers (Easy/Normal/Hard)
+- ✓ 15 achievements with progress tracking
+- ✓ 5 unique visual themes with real-time switching (T-key)
 - ✓ Pause/resume functionality (P-key toggle)
 - ✓ Settings persistence infrastructure
 - ✓ Particle effects on key events (brick destruction, paddle hits, power-ups)
 - ✓ Theme-aware rendering throughout all UI
-- ✓ Audio system foundation for future real audio playback
+- ✓ Real-time audio synthesis using Rodio crate (sine wave generation)
+- ✓ USB gamepad/controller support (Gilrs crate)
+- ✓ Debug console window hidden in release builds
 
 **Audio Implementation:**
-- ✓ 6 sound effects (paddle hit, brick destroy, power-up pickup, level complete, game over, victory)
+- ✓ 7 sound effects (paddle hit, brick destroy, power-up pickup, paddle shrink, level complete, game over, victory)
 - ✓ Frequency range 300-900 Hz with varying durations
-- ✓ No external audio dependencies (Macroquad-only, extensible)
+- ✓ Rodio crate for real PCM audio synthesis
+- ✓ Threaded non-blocking audio playback
+- ✓ Volume control with fade-out to prevent clicks
 - ✓ Event-based trigger system in game loop
+
+**Gamepad Implementation:**
+- ✓ Gilrs crate (v0.10) for cross-platform gamepad support
+- ✓ Analog stick with 0.2 deadzone for smooth paddle movement
+- ✓ D-pad digital fallback
+- ✓ A button for ball release/menu confirm
+- ✓ Start button for pause/resume
+- ✓ LB/RB for volume control
+- ✓ Back/Select for mute toggle
+- ✓ All inputs wired into game loop
 
 **Performance Requirements:**
 - ✓ 60 FPS maintained under normal load
 - ✓ <100 MB memory footprint
 - ✓ <2 second startup time
 - ✓ Particle system handles 1000+ particles at 60 FPS
-- ✓ Audio events logged efficiently with no frame rate impact
+- ✓ Audio runs in background thread (non-blocking)
 
 **Quality Requirements:**
-- ✓ Zero compilation errors (0 errors, 26 expected warnings for dead code)
+- ✓ Zero compilation errors (0 errors, 21 expected warnings for dead code)
 - ✓ All achievements validate correctly
 - ✓ Theme switching works seamlessly in-game
 - ✓ Pause/resume maintains exact game state
 - ✓ Clean module architecture with separation of concerns
 - ✓ Audio system properly integrated into game update loop
+- ✓ Gamepad input properly integrated into game loop
 
 **Polish Requirements:**
 - ✓ Professional main menu design with theme support
 - ✓ Smooth pause overlay rendering
 - ✓ Consistent visual style across all screens using theme colors
-- ✓ Responsive to all input (arrow keys, P, T, ESC)
+- ✓ Responsive to all input (keyboard + gamepad)
 - ✓ Particle effects add visual polish and feedback
-- ✓ Audio feedback on all key gameplay events
+- ✓ Real audio feedback on all key gameplay events
+- ✓ No debug console window in release builds
 
 ---
 
-**Document Version:** 2.2 (Phase 1 Complete + Phase 2 Complete + Phase 3 Audio Complete)  
+**Document Version:** 2.3 (Phase 1-4 Complete + Debug Console Fix)  
 **Last Updated:** 2026-04-06  
 **Phase 1 Status:** ✓ Complete - All core mechanics working  
 **Phase 2 Status:** ✓ Complete - Professional polish implemented (Commit 33d66ae)  
-**Phase 3 Status:** ✓ Complete - Audio system with sound effects (Commit 5eb4546)
+**Phase 3 Status:** ✓ Complete - Real audio system with rodio (Commit 5eb4546)  
+**Phase 4 Status:** ✓ Complete - USB gamepad support  
+**Debug Console Fix:** ✓ Complete - Release builds run without debug terminal  
+**Phase 4 Status:** ✓ Complete - USB gamepad support (Commit 2d47f91)

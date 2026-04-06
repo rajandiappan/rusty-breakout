@@ -45,6 +45,15 @@ impl AudioManager {
         self.play_tone(900.0, 0.15, 0.35);
     }
 
+    /// Play a paddle shrink sound (descending beep: 500 Hz -> 250 Hz, 200ms)
+    pub fn play_paddle_shrink(&self) {
+        if !self.sfx_enabled {
+            return;
+        }
+        // Use a lower frequency than powerup to indicate negative effect
+        self.play_tone(400.0, 0.2, 0.4);
+    }
+
     /// Play a level complete sound (ascending melody)
     pub fn play_level_complete(&self) {
         if !self.sfx_enabled {

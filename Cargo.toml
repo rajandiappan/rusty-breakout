@@ -3,13 +3,16 @@ name = "breakout"
 version = "0.1.0"
 edition = "2021"
 
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["wincon"] }
+
 [dependencies]
 macroquad = "0.4"
 rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-rodio = "0.17"  # [NEW] For real audio playback
-gilrs = "0.10"  # [NEW] For USB gamepad/controller support
+rodio = "0.17"
+gilrs = "0.10"
 
 [profile.release]
 opt-level = 3

@@ -65,13 +65,15 @@ pub const POWERUP_BOMB_SYMBOL: &str = "◈"; // Diamond with center (explosion)
 pub const POWERUP_BOMB_LABEL: &str = "B";
 pub const POWERUP_MAGNETIZE_SYMBOL: &str = "●"; // Filled circle (magnetic)
 pub const POWERUP_MAGNETIZE_LABEL: &str = "Z";
+pub const POWERUP_SHRINK_SYMBOL: &str = "◈"; // Circle bomb (shrink - power-down)
+pub const POWERUP_SHRINK_LABEL: &str = "S"; // Fallback letter
 
 // Game constants
 pub const STARTING_LIVES: u8 = 3;
 pub const MAX_BALLS: usize = 3;
 
 // Colors (RGB)
-pub use macroquad::color::{GREEN, MAGENTA, ORANGE, RED, WHITE, YELLOW};
+pub use macroquad::color::{GREEN, MAGENTA, ORANGE, RED, YELLOW};
 
 pub const CYAN: macroquad::color::Color = macroquad::color::Color {
     r: 0.0,

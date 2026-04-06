@@ -53,7 +53,10 @@ impl Game {
         self.state.paddle.x = (SCREEN_WIDTH - paddle_width) / 2.0;
         self.state.paddle.width = paddle_width;
         self.state.paddle.normal_width = paddle_width;
+        self.state.paddle.extended_width = paddle_width * 1.5;
+        self.state.paddle.shrunk_width = paddle_width * 0.6;
         self.state.paddle.is_extended = false;
+        self.state.paddle.is_shrunk = false;
         self.state.paddle.has_shield = false;
         self.state.paddle.magnetized_ball = None;
     }
@@ -303,11 +306,8 @@ impl Game {
         // Remove expired power-ups
         self.state.active_powerups.retain(|p| p.remaining_frames > 0);
 
-        // Handle paddle extension timeout
-        if !self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::PaddleExtend) {
-            self.state.paddle.is_extended = false;
-            self.state.paddle.width = self.state.paddle.normal_width;
-        }
+        // Handle paddle state - extend is permanent, shrink is also permanent (until extend is collected)
+        // Do not auto-reset paddle width here anymore - only happens on level change or power-up collection
 
         self.state.powerups.retain(|p| p.active);
     }
@@ -353,14 +353,15 @@ impl Game {
                     let spawn_chance = self.state.difficulty.powerup_spawn_chance();
                     let spawn_rand = ((self.state.frame_count as f32 * 12.347 + idx as f32 * 53.891) % 100.0) / 100.0;
                     if spawn_rand < spawn_chance {
-                        let power_type = match (self.state.frame_count + idx) % 7 {
+                        let power_type = match (self.state.frame_count + idx) % 8 {
                             0 => PowerUpType::MultiBall,
                             1 => PowerUpType::PaddleExtend,
                             2 => PowerUpType::SlowTime,
                             3 => PowerUpType::Laser,      // [NEW]
                             4 => PowerUpType::Shield,     // [NEW]
                             5 => PowerUpType::Bomb,       // [NEW]
-                            _ => PowerUpType::Magnetize,  // [NEW]
+                            6 => PowerUpType::Magnetize,  // [NEW]
+                            _ => PowerUpType::PaddleShrink, // [NEW] Power-down
                         };
                         
                         // Emit particles for power-up spawn
@@ -395,8 +396,15 @@ impl Game {
             if crate::physics::check_powerup_pickup(powerup, &self.state.paddle) {
                 powerup.active = false;
                 
-                // [NEW] Play power-up pickup sound
-                self.state.audio.play_powerup_pickup();
+                // [UPDATED] Play power-up or power-down sound based on type
+                match powerup.power_type {
+                    PowerUpType::PaddleShrink => {
+                        self.state.audio.play_paddle_shrink(); // [NEW] Special sound for power-down
+                    }
+                    _ => {
+                        self.state.audio.play_powerup_pickup(); // Regular power-up sound
+                    }
+                }
                 
                 // Emit particles for power-up pickup
                 self.state.particle_system.power_up_pickup(
@@ -501,11 +509,9 @@ impl Game {
             PowerUpType::PaddleExtend => {
                 self.state.paddle.is_extended = true;
                 // Extended width is 1.5x the normal width for this difficulty
-                self.state.paddle.width = self.state.paddle.normal_width * 1.5;
-                self.state.active_powerups.push(crate::types::ActivePowerUp {
-                    power_type,
-                    remaining_frames: POWERUP_DURATION,
-                });
+                self.state.paddle.width = self.state.paddle.extended_width;
+                self.state.paddle.is_shrunk = false; // Cancel shrink if active
+                // [CHANGED] No longer add to active_powerups - extend is PERMANENT until next level or shrink
                 self.state.achievements.increment_progress(crate::achievements::AchievementId::PowerUpHoarder, 1);
             }
             PowerUpType::SlowTime => {
@@ -539,6 +545,14 @@ impl Game {
                         remaining_frames: POWERUP_MAGNETIZE_DURATION,
                     });
                 }
+            }
+            PowerUpType::PaddleShrink => {
+                // [NEW] Shrink paddle and play audio
+                self.state.paddle.is_shrunk = true;
+                self.state.paddle.width = self.state.paddle.shrunk_width;
+                self.state.paddle.is_extended = false; // Cancel extend if active
+                self.state.audio.play_paddle_shrink(); // [NEW] Play shrink sound
+                self.state.achievements.increment_progress(crate::achievements::AchievementId::PowerUpHoarder, 1);
             }
         }
     }

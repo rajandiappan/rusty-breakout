@@ -37,10 +37,11 @@ This is a fully-featured Breakout game with Phase 3 audio and professional polis
 - **5 Progressive Levels** with increasing difficulty
 - **Ball Physics** with deterministic, frame-based movement
 - **Collision Detection** (walls, paddle, bricks)
-- **3 Power-Up Types:**
-  - Multi-Ball: Spawn 2 additional balls
-  - Paddle Extend: Increase paddle width temporarily
-  - Slow Time: Reduce ball velocity by 50%
+- **4 Power-Up Types + 1 Power-Down:**
+   - Multi-Ball: Spawn 2 additional balls
+   - Paddle Extend: Increase paddle width PERMANENTLY until next level or Paddle Shrink
+   - Slow Time: Reduce ball velocity by 50%
+   - Paddle Shrink: [POWER-DOWN] Decrease paddle width (collect Paddle Extend to reverse)
 - **Lives System** (configurable by difficulty: 2-5 lives)
 - **Score Tracking** with high score persistence
 - **Game States:** Main Menu, Playing, Level Complete, Game Over, Victory
@@ -106,7 +107,7 @@ AudioManager with sound effects for all game events:
 ### Game Constants
 - Screen: 800×600 pixels
 - Ball radius: 5 pixels
-- Paddle: 100 pixels wide (150 when extended), 15 pixels tall
+- Paddle: 100 pixels wide (150 when extended, 60 when shrunk), 15 pixels tall
 - Bricks: 60×20 pixels, 12×6 grid (72 per level)
 - Power-ups: 15% spawn chance, 60-frame duration
 
@@ -143,8 +144,9 @@ cargo run --release
 2. **Playing:** Control paddle with arrow keys, destroy all bricks
 3. **Power-ups:** Fall from destroyed bricks (15% chance each)
    - Gold (M): Spawn extra balls
-   - Green (P): Extend paddle temporarily
+   - Green (P): Extend paddle PERMANENTLY (until next level or shrink)
    - Purple (S): Slow down ball
+   - Red/Dark (S): Shrink paddle [POWER-DOWN] - collect green extend to reverse
 4. **Level Complete:** Auto-advances after 2 seconds
 5. **Victory:** Complete all 5 levels to win!
 6. **Game Over:** Run out of lives to lose
@@ -202,11 +204,13 @@ struct Ball {
 ```rust
 struct Paddle {
     x: f32, y: f32,           // Position
-    width: f32,               // Current width
+    width: f32,               // Current width (changes with extend/shrink)
     height: f32,              // Height (constant)
-    normal_width: f32,        // Normal width
-    extended_width: f32,      // Extended width
+    normal_width: f32,        // Base width (difficulty-adjusted)
+    extended_width: f32,      // Width when extended (1.5x normal)
+    shrunk_width: f32,        // Width when shrunk (0.6x normal)
     is_extended: bool,        // Currently extended?
+    is_shrunk: bool,          // Currently shrunk?
 }
 ```
 
@@ -262,16 +266,23 @@ Uses closest-point algorithm to determine entry side:
 - Risk/reward mechanic
 
 ### Paddle Extend (P - Green)
-- Increases paddle width to 150 pixels
-- Duration: 60 frames (1 second)
+- Increases paddle width to 150 pixels (1.5x normal)
+- **PERMANENT effect**: Lasts until next level or until Paddle Shrink is collected
 - Defensive, safety-focused
-- Restacking resets timer
+- Only one extend active at a time
 
 ### Slow Time (S - Purple)
 - Reduces ball velocity to 50%
-- Duration: 60 frames
+- Duration: 60 frames (1 second at 60 FPS)
 - Defensive, skill-focused
 - Only affects ball speed, not paddle
+
+### Paddle Shrink (S - Red/Dark) [POWER-DOWN]
+- Decreases paddle width to 60 pixels (60% of normal)
+- Icon: Circle bomb (◈)
+- Effect: Reduces paddle size making gameplay more challenging
+- **Reversed by**: Collecting a Paddle Extend power-up
+- Strategic trade-off: Risk vs. reward on power-up collection
 
 ## Collision Handling Priority
 

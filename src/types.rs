@@ -1,7 +1,7 @@
 use crate::achievements::AchievementManager;
-use crate::audio::AudioManager; // [NEW]
+use crate::audio::AudioManager;
 use crate::effects::ParticleSystem;
-use crate::gamepad::GamepadInput; // [NEW]
+use crate::gamepad::GamepadInput;
 use crate::settings::{Difficulty, ThemeType};
 use crate::themes::ThemeColors;
 use macroquad::color::Color;
@@ -18,12 +18,13 @@ pub enum GamePhase {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PowerUpType {
     MultiBall,    // ⊕ Gold: Spawn 2 extra balls
-    PaddleExtend, // ▬ Green: Widen paddle to 150px
+    PaddleExtend, // ▬ Green: Widen paddle to 150px (permanent until next level or shrink)
     SlowTime,     // ◐ Purple: Reduce ball velocity 50%
     Laser,        // ↑ Cyan: Fire projectiles upward
     Shield,       // ◇ Orange: Catch 1 lost ball
     Bomb,         // ◈ Red: Destroy bricks in 3x3 area
     Magnetize,    // ● Magenta: Ball sticks to paddle
+    PaddleShrink, // ◈ Red/Dark: Shrink paddle to 60px (60% of normal)
 }
 
 #[derive(Clone, Debug)]
@@ -46,6 +47,8 @@ pub struct Paddle {
     pub normal_width: f32,
     pub extended_width: f32,
     pub is_extended: bool,
+    pub is_shrunk: bool,                // [NEW] Shrink status
+    pub shrunk_width: f32,              // [NEW] Width when shrunk
     pub has_shield: bool,               // [NEW] Shield status
     pub magnetized_ball: Option<usize>, // [NEW] Index of stuck ball, if any
 }
@@ -132,6 +135,8 @@ impl GameState {
                 normal_width: 100.0,
                 extended_width: 150.0,
                 is_extended: false,
+                is_shrunk: false,
+                shrunk_width: 60.0,
                 has_shield: false,
                 magnetized_ball: None,
             },
@@ -147,8 +152,8 @@ impl GameState {
             is_paused: false,
             particle_system: ParticleSystem::new(),
             laser_shots: Vec::new(),
-            audio: AudioManager::new(),   // [NEW]
-            gamepad: GamepadInput::new(), // [NEW]
+            audio: AudioManager::new(),
+            gamepad: GamepadInput::new(),
         }
     }
 }

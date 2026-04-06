@@ -1,3 +1,15 @@
+#[cfg(windows)]
+mod console_hide {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn FreeConsole() -> i32;
+    }
+
+    pub fn hide_console() {
+        unsafe { FreeConsole(); }
+    }
+}
+
 mod constants;
 mod types;
 mod game;
@@ -15,11 +27,17 @@ mod effects;
 mod audio;
 mod gamepad;
 
+#[cfg(windows)]
+use console_hide::hide_console;
+
 use macroquad::prelude::*;
 use game::Game;
 
 #[macroquad::main("Breakout")]
 async fn main() {
+    #[cfg(windows)]
+    hide_console();
+
     let mut game = Game::new();
 
     loop {
