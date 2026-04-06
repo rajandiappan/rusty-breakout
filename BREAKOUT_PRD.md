@@ -102,8 +102,8 @@ A faithful implementation of the classic Breakout/Arkanoid arcade game. The play
 
 - **Spawn:** 15% chance when any brick is destroyed
 - **Duration:** 
-  - Timed power-ups: 60 frames (1 second at 60 FPS)
-  - Permanent power-ups: Last until next level or specific counter power-up
+  - Timed power-ups (Multi-Ball, Slow Time, Laser, Shield, Bomb, Magnetize): 60 frames (1 second at 60 FPS)
+  - Permanent power-ups (Paddle Extend, Paddle Shrink): Last until next level or specific counter power-up
 - **Fall Speed:** 3 pixels/frame
 - **Pickup Zone:** Paddle rectangle
 - **Visual:** 20×20 pixel square with icon/letter
