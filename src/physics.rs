@@ -120,7 +120,7 @@ mod tests {
             is_extended: false,
             is_shrunk: false,
             shrunk_width: PADDLE_WIDTH * 0.6,
-            has_shield: false,
+            shield_count: 0,
             magnetized_ball: None,
         };
 
@@ -154,7 +154,7 @@ mod tests {
             is_extended: false,
             is_shrunk: false,
             shrunk_width: PADDLE_WIDTH * 0.6,
-            has_shield: false,
+            shield_count: 0,
             magnetized_ball: None,
         };
 
@@ -236,7 +236,7 @@ mod tests {
             is_extended: false,
             is_shrunk: false,
             shrunk_width: PADDLE_WIDTH * 0.6,
-            has_shield: false,
+            shield_count: 0,
             magnetized_ball: None,
         };
 
@@ -263,7 +263,7 @@ mod tests {
             is_extended: false,
             is_shrunk: false,
             shrunk_width: PADDLE_WIDTH * 0.6,
-            has_shield: false,
+            shield_count: 0,
             magnetized_ball: None,
         };
 
