@@ -128,6 +128,8 @@ mod tests {
             radius: BALL_RADIUS,
             active: true,
             is_magnetized: false,
+            speed_multiplier: 1.0,
+            frozen_timer: 0,
         };
 
         let mut paddle = Paddle {
@@ -162,6 +164,8 @@ mod tests {
             radius: BALL_RADIUS,
             active: true,
             is_magnetized: false,
+            speed_multiplier: 1.0,
+            frozen_timer: 0,
         };
 
         let mut paddle = Paddle {
@@ -192,6 +196,8 @@ mod tests {
             radius: BALL_RADIUS,
             active: true,
             is_magnetized: false,
+            speed_multiplier: 1.0,
+            frozen_timer: 0,
         };
 
         let mut brick = Brick {
@@ -201,6 +207,10 @@ mod tests {
             height: BRICK_HEIGHT,
             active: true,
             color: RED,
+            brick_type: BrickType::Normal,
+            health: 0,
+            regen_timer: 0,
+            is_hit: false,
         };
 
         // Should collide
@@ -220,6 +230,8 @@ mod tests {
             radius: BALL_RADIUS,
             active: true,
             is_magnetized: false,
+            speed_multiplier: 1.0,
+            frozen_timer: 0,
         };
 
         let mut brick = Brick {
@@ -229,6 +241,10 @@ mod tests {
             height: BRICK_HEIGHT,
             active: false, // inactive
             color: RED,
+            brick_type: BrickType::Normal,
+            health: 0,
+            regen_timer: 0,
+            is_hit: false,
         };
 
         // Should NOT collide with inactive brick
