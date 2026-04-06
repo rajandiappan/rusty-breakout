@@ -344,19 +344,15 @@ draw_rectangle_lines(paddle.x, paddle.y, paddle.width, paddle.height, 2.0, YELLO
 
 ## Screenshots
 
-- Level Grid and Bricks gameplay (placeholder): ![Level Grid](assets/screenshots/level1.png)
-- Theme switching preview (placeholder): ![Theme Preview](assets/screenshots/theme-preview.png)
-- Controller input overlay (placeholder): ![Controller Input](assets/screenshots/controller.png)
-
-Note: Replace with real screenshots as they become available.
+![Gameplay Screenshot](assets/screenshots/Screenshot.png)
 
 ## Quick Start
 
 Clone and build quickly:
 
 ```bash
-git clone <REPO_URL>  # replace with repository URL
-cd breakout
+git clone https://github.com/rajandiappan/rusty-breakout.git
+cd rusty-breakout
 cargo build --release
 ```
 
