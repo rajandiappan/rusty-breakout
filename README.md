@@ -1,3 +1,6 @@
+![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)
+SPDX-License-Identifier: MIT
+
 # Breakout Game - Rust + Macroquad Implementation
 
 A classic arcade-style Breakout/Arkanoid game implemented in Rust using the Macroquad game engine.
@@ -338,6 +341,37 @@ draw_rectangle_lines(paddle.x, paddle.y, paddle.width, paddle.height, 2.0, YELLO
 - **PRD Document:** See `BREAKOUT_PRD.md` for complete specifications
 - **Macroquad Docs:** https://docs.rs/macroquad/
 - **Macroquad Examples:** https://github.com/not-fl3/macroquad/tree/master/examples
+
+## Screenshots
+
+- Level Grid and Bricks gameplay (placeholder): ![Level Grid](assets/screenshots/level1.png)
+- Theme switching preview (placeholder): ![Theme Preview](assets/screenshots/theme-preview.png)
+- Controller input overlay (placeholder): ![Controller Input](assets/screenshots/controller.png)
+
+Note: Replace with real screenshots as they become available.
+
+## Quick Start
+
+Clone and build quickly:
+
+```bash
+git clone <REPO_URL>  # replace with repository URL
+cd breakout
+cargo build --release
+```
+
+Run (release):
+
+```bash
+./target/release/breakout  # Unix-like
+target\\release\\breakout.exe  # Windows
+```
+
+If you want to test a debug build first:
+
+```bash
+cargo run --release
+```
 
 ## License
 

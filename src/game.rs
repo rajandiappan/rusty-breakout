@@ -21,10 +21,12 @@ impl Game {
         self.state.score = 0;
         self.state.lives = self.state.difficulty.starting_lives();
         self.state.level = 1;
+        self.state.audio.stop_music();
     }
 
     pub fn start_game(&mut self) {
         self.state.phase = GamePhase::Playing;
+        self.state.audio.start_music();
         self.load_level(self.state.level);
     }
 
@@ -116,9 +118,9 @@ impl Game {
             self.state.audio.decrease_volume();
         }
 
-        // Handle audio toggle (M key)
+        // Handle music toggle (M key)
         if is_key_pressed(KeyCode::M) {
-            self.state.audio.toggle_sfx();
+            self.state.audio.toggle_music();
         }
 
         // GAMEPAD CONTROLS
@@ -135,9 +137,9 @@ impl Game {
             self.state.audio.increase_volume();
         }
 
-        // Mute toggle (Back/Select button)
+        // Music toggle (Back/Select button on gamepad)
         if self.state.gamepad.is_select_pressed() {
-            self.state.audio.toggle_sfx();
+            self.state.audio.toggle_music();
         }
 
         // Update particle system regardless of pause
@@ -604,8 +606,9 @@ impl Game {
             self.state.lives = 0;
             self.state.phase = GamePhase::GameOver;
             
-            // [NEW] Play game over sound
+            // Play game over sound and stop music
             self.state.audio.play_game_over();
+            self.state.audio.stop_music();
         }
     }
 
@@ -620,8 +623,9 @@ impl Game {
                 self.state.phase = GamePhase::Victory;
                 self.state.score += ALL_LEVELS_BONUS;
                 
-                // [NEW] Play victory sound
+                // Play victory sound and stop music
                 self.state.audio.play_victory();
+                self.state.audio.stop_music();
                 
                 // Check for PerfectClear (beat all levels without losing a life)
                 if self.state.lives == 3 {

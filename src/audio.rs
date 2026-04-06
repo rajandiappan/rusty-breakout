@@ -1,24 +1,166 @@
-use rodio::Source;
+use rodio::{OutputStream, Source};
 use std::f32::consts::PI;
+use std::fmt::Debug;
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 /// Audio system for game sounds using synthesized sine waves via Rodio
 /// Generates real PCM audio and plays it through the system audio device
-#[derive(Clone, Debug)]
 pub struct AudioManager {
     pub sfx_enabled: bool,
+    pub music_enabled: bool,
     pub volume: f32,                // 0.0 to 1.0
+    music_volume: f32,              // 0.0 to 1.0
     master_volume: Arc<Mutex<f32>>, // Master volume control
+    music_handle: Option<thread::JoinHandle<()>>,
+    music_running: Arc<Mutex<bool>>,
+}
+
+impl Debug for AudioManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AudioManager")
+            .field("sfx_enabled", &self.sfx_enabled)
+            .field("music_enabled", &self.music_enabled)
+            .field("volume", &self.volume)
+            .field("music_volume", &self.music_volume)
+            .finish()
+    }
 }
 
 impl AudioManager {
     pub fn new() -> Self {
         AudioManager {
             sfx_enabled: true,
+            music_enabled: true,
             volume: 0.7,
+            music_volume: 0.3,
             master_volume: Arc::new(Mutex::new(0.7)),
+            music_handle: None,
+            music_running: Arc::new(Mutex::new(false)),
         }
+    }
+
+    /// Start background music loop (chiptune-style procedural melody)
+    pub fn start_music(&mut self) {
+        if !self.music_enabled {
+            return;
+        }
+
+        // Stop existing music if running
+        self.stop_music();
+
+        let running = Arc::clone(&self.music_running);
+        let volume = self.volume * self.music_volume;
+
+        *running.lock().unwrap() = true;
+
+        let handle = thread::spawn(move || {
+            // Chiptune melody notes (frequency, duration_ms)
+            // Simple catchy loop
+            let melody: [(f32, f32); 16] = [
+                (392.0, 200.0), // G4
+                (440.0, 200.0), // A4
+                (392.0, 200.0), // G4
+                (523.0, 200.0), // C5
+                (392.0, 200.0), // G4
+                (440.0, 200.0), // A4
+                (523.0, 400.0), // C5
+                (493.0, 200.0), // B4
+                (440.0, 200.0), // A4
+                (392.0, 200.0), // G4
+                (349.0, 200.0), // F4
+                (392.0, 200.0), // G4
+                (440.0, 200.0), // A4
+                (523.0, 200.0), // C5
+                (493.0, 200.0), // B4
+                (440.0, 400.0), // A4
+            ];
+
+            const SAMPLE_RATE: u32 = 44100;
+
+            while *running.lock().unwrap() {
+                for (freq, dur_ms) in melody.iter() {
+                    if !*running.lock().unwrap() {
+                        break;
+                    }
+
+                    let duration = *dur_ms as f32 / 1000.0;
+                    let num_samples = (SAMPLE_RATE as f32 * duration) as usize;
+                    let mut samples = Vec::with_capacity(num_samples);
+
+                    // Generate slightly richer tone (fundamental + harmonics for chiptune feel)
+                    for i in 0..num_samples {
+                        let t = i as f32 / SAMPLE_RATE as f32;
+                        let fundamental = (2.0 * PI * freq * t).sin();
+                        let harmonic = (2.0 * PI * freq * 2.0 * t).sin() * 0.3;
+                        let sample = (fundamental + harmonic) * 0.5;
+
+                        // Fade in/out for smoothness
+                        let fade = if i < 1000 {
+                            i as f32 / 1000.0
+                        } else if i > num_samples.saturating_sub(1000) {
+                            (num_samples.saturating_sub(i)) as f32 / 1000.0
+                        } else {
+                            1.0
+                        };
+
+                        let value = (sample * volume * fade * 32767.0) as i16;
+                        samples.push(value);
+                    }
+
+                    // Create WAV data
+                    let mut wav_data = Vec::new();
+                    create_wav_header(&mut wav_data, SAMPLE_RATE, samples.len());
+                    for sample in &samples {
+                        wav_data.extend_from_slice(&sample.to_le_bytes());
+                    }
+
+                    // Play
+                    if let Ok((_stream, handle)) = OutputStream::try_default() {
+                        if let Ok(decoder) = rodio::Decoder::new(Cursor::new(wav_data)) {
+                            let _ = handle.play_raw(decoder.convert_samples::<f32>());
+                            let sleep_ms = (*dur_ms + 50.0) as u64;
+                            thread::sleep(Duration::from_millis(sleep_ms));
+                        }
+                    }
+                }
+
+                // Small pause between loops
+                thread::sleep(Duration::from_millis(500));
+            }
+        });
+
+        self.music_handle = Some(handle);
+    }
+
+    /// Stop background music
+    pub fn stop_music(&mut self) {
+        *self.music_running.lock().unwrap() = false;
+        if let Some(handle) = self.music_handle.take() {
+            let _ = handle.join();
+        }
+    }
+
+    /// Toggle music on/off
+    pub fn toggle_music(&mut self) {
+        self.music_enabled = !self.music_enabled;
+        if self.music_enabled {
+            self.start_music();
+        } else {
+            self.stop_music();
+        }
+    }
+
+    /// Set music volume (0.0 to 1.0)
+    pub fn set_music_volume(&mut self, vol: f32) {
+        self.music_volume = vol.clamp(0.0, 1.0);
+    }
+
+    /// Get music enabled state
+    pub fn is_music_enabled(&self) -> bool {
+        self.music_enabled
     }
 
     /// Play a paddle hit sound (short beep: 400 Hz, 50ms)
@@ -158,6 +300,17 @@ impl AudioManager {
 
     pub fn toggle_sfx(&mut self) {
         self.sfx_enabled = !self.sfx_enabled;
+    }
+
+    /// Get music volume
+    pub fn get_music_volume(&self) -> f32 {
+        self.music_volume
+    }
+}
+
+impl Drop for AudioManager {
+    fn drop(&mut self) {
+        self.stop_music();
     }
 }
 
