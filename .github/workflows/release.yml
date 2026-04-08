@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-release:
+    name: Build Windows Release Assets
+    runs-on: windows-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index/git
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      - name: Determine app version
+        shell: pwsh
+        run: |
+          $versionMatch = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"(.*)"$' | Select-Object -First 1
+          if (-not $versionMatch) {
+            throw "Could not determine version from Cargo.toml"
+          }
+          $version = $versionMatch.Matches[0].Groups[1].Value
+          Add-Content -Path $env:GITHUB_ENV -Value "APP_VERSION=$version"
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Prepare portable release files
+        shell: pwsh
+        run: |
+          $stageDir = Join-Path $env:GITHUB_WORKSPACE 'dist\rusty-breakout-windows-x64'
+          $zipPath = Join-Path $env:GITHUB_WORKSPACE 'dist\rusty-breakout-windows-x64.zip'
+
+          New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
+          Copy-Item 'target\release\breakout.exe' $stageDir
+          Copy-Item 'README.md' $stageDir
+          Copy-Item 'LICENSE' $stageDir
+
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+          Compress-Archive -Path "$stageDir\*" -DestinationPath $zipPath -Force
+
+      - name: Build Windows installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
+        with:
+          path: packaging/windows/installer.iss
+          options: >-
+            /DMyAppVersion=${{ env.APP_VERSION }}
+            /DMySourceDir=${{ github.workspace }}\dist\rusty-breakout-windows-x64
+            /DMyOutputDir=${{ github.workspace }}\dist
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rusty-breakout-windows-release
+          path: |
+            dist/rusty-breakout-windows-x64.zip
+            dist/rusty-breakout-setup-x64.exe
+          if-no-files-found: error
+
+      - name: Publish GitHub Release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/rusty-breakout-windows-x64.zip
+            dist/rusty-breakout-setup-x64.exe
+          generate_release_notes: true

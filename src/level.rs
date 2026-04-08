@@ -163,7 +163,7 @@ fn create_tundra(bricks: &mut Vec<Brick>) {
             let y = BRICK_START_Y + row as f32 * (BRICK_HEIGHT + BRICK_SPACING);
 
             let is_corner =
-                (row < 2 || row >= BRICK_ROWS - 2) && (col < 2 || col >= BRICK_COLS - 2);
+                !(2..BRICK_ROWS - 2).contains(&row) && !(2..BRICK_COLS - 2).contains(&col);
 
             let brick_type = if is_corner {
                 BrickType::Frozen

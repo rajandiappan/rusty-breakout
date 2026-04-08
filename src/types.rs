@@ -115,6 +115,16 @@ pub struct ScorePopup {
     pub max_lifetime: f32,
 }
 
+#[derive(Clone, Debug)]
+pub struct DevToolsState {
+    pub enabled: bool,
+    pub open: bool,
+    pub selected_row: usize,
+    pub selected_level: usize,
+    pub selected_powerup_index: usize,
+    pub infinite_lives: bool,
+}
+
 #[derive(Debug)]
 pub struct GameState {
     pub level: usize,
@@ -150,6 +160,7 @@ pub struct GameState {
     pub screen_flash: f32,           // [NEW] Screen flash intensity (0.0 = no flash)
     pub run_starting_lives: u8,
     pub seen_themes: HashSet<ThemeType>,
+    pub dev_tools: DevToolsState,
 }
 
 impl GameState {
@@ -205,6 +216,17 @@ impl GameState {
             screen_flash: 0.0,
             run_starting_lives: STARTING_LIVES,
             seen_themes,
+            dev_tools: DevToolsState {
+                enabled: cfg!(debug_assertions)
+                    || std::env::var("BREAKOUT_DEV_TOOLS")
+                        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+                        .unwrap_or(false),
+                open: false,
+                selected_row: 0,
+                selected_level: 1,
+                selected_powerup_index: 0,
+                infinite_lives: false,
+            },
         }
     }
 }

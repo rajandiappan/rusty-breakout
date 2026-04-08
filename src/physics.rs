@@ -132,7 +132,7 @@ mod tests {
             frozen_timer: 0,
         };
 
-        let mut paddle = Paddle {
+        let paddle = Paddle {
             x: 90.0,
             y: PADDLE_Y,
             width: PADDLE_WIDTH,
@@ -147,7 +147,7 @@ mod tests {
         };
 
         // Should collide
-        assert!(check_ball_paddle_collision(&mut ball, &mut paddle));
+        assert!(check_ball_paddle_collision(&mut ball, &paddle));
 
         // After collision, ball should move upward
         assert!(ball.vy < 0.0);
@@ -168,7 +168,7 @@ mod tests {
             frozen_timer: 0,
         };
 
-        let mut paddle = Paddle {
+        let paddle = Paddle {
             x: 90.0,
             y: PADDLE_Y,
             width: PADDLE_WIDTH,
@@ -183,7 +183,7 @@ mod tests {
         };
 
         // Should NOT collide when moving up (only collides when moving down)
-        assert!(!check_ball_paddle_collision(&mut ball, &mut paddle));
+        assert!(!check_ball_paddle_collision(&mut ball, &paddle));
     }
 
     #[test]
@@ -305,5 +305,70 @@ mod tests {
 
         // Should NOT pickup when inactive
         assert!(!check_powerup_pickup(&powerup, &paddle));
+    }
+
+    #[test]
+    fn test_steel_brick_requires_multiple_hits() {
+        let mut ball = Ball {
+            x: 50.0,
+            y: 50.0,
+            vx: 2.0,
+            vy: 2.0,
+            radius: BALL_RADIUS,
+            active: true,
+            is_magnetized: false,
+            speed_multiplier: 1.0,
+            frozen_timer: 0,
+        };
+
+        let mut brick = Brick {
+            x: 40.0,
+            y: 40.0,
+            width: BRICK_WIDTH,
+            height: BRICK_HEIGHT,
+            active: true,
+            color: RED,
+            brick_type: BrickType::Steel,
+            health: 3,
+            regen_timer: 0,
+            is_hit: false,
+        };
+
+        assert!(check_ball_brick_collision(&mut ball, &mut brick));
+        assert!(brick.active, "steel brick should survive first hit");
+        assert_eq!(brick.health, 2);
+    }
+
+    #[test]
+    fn test_regenerating_brick_starts_regen_timer() {
+        let mut ball = Ball {
+            x: 50.0,
+            y: 50.0,
+            vx: 2.0,
+            vy: 2.0,
+            radius: BALL_RADIUS,
+            active: true,
+            is_magnetized: false,
+            speed_multiplier: 1.0,
+            frozen_timer: 0,
+        };
+
+        let mut brick = Brick {
+            x: 40.0,
+            y: 40.0,
+            width: BRICK_WIDTH,
+            height: BRICK_HEIGHT,
+            active: true,
+            color: RED,
+            brick_type: BrickType::Regenerating,
+            health: 0,
+            regen_timer: 0,
+            is_hit: false,
+        };
+
+        assert!(check_ball_brick_collision(&mut ball, &mut brick));
+        assert!(!brick.active);
+        assert_eq!(brick.regen_timer, REGENERATING_DURATION);
+        assert!(brick.is_hit);
     }
 }

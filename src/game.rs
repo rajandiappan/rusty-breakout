@@ -1,4 +1,5 @@
 use crate::achievements::{AchievementId, AchievementManager};
+use crate::audio::MusicTier;
 use crate::constants::*;
 use crate::level;
 use crate::settings::{Difficulty, GameSettings};
@@ -15,6 +16,8 @@ pub struct Game {
 }
 
 impl Game {
+    const DEV_MENU_ROW_COUNT: usize = 9;
+
     pub fn new() -> Self {
         let settings = GameSettings::load_from_file(SETTINGS_PATH).unwrap_or_default();
         let mut game = Game {
@@ -53,6 +56,21 @@ impl Game {
 
     fn save_achievements(&self) {
         let _ = self.state.achievements.save_to_file(ACHIEVEMENTS_PATH);
+    }
+
+    fn refresh_music_state(&mut self) {
+        let tier = MusicTier::from(self.state.level);
+        let active_balls = self.state.balls.iter().filter(|ball| ball.active).count();
+        let active_bricks = self
+            .state
+            .bricks
+            .iter()
+            .filter(|brick| brick.active)
+            .count();
+        let danger = self.state.lives <= 1
+            || active_balls >= MAX_BALLS
+            || (self.state.level >= 8 && active_bricks > 0 && active_bricks <= 10);
+        self.state.audio.set_music_state(tier, danger);
     }
 
     fn record_high_score(&mut self) {
@@ -127,6 +145,135 @@ impl Game {
         }
     }
 
+    fn resolve_auxiliary_brick_hit(&mut self, brick_index: usize) -> bool {
+        let brick = &mut self.state.bricks[brick_index];
+        if !brick.active {
+            return false;
+        }
+
+        match brick.brick_type {
+            BrickType::Normal | BrickType::Frozen => {
+                brick.active = false;
+                true
+            }
+            BrickType::Exploding => {
+                brick.active = false;
+                true
+            }
+            BrickType::Steel => {
+                if brick.health > 0 {
+                    brick.health -= 1;
+                    self.state.audio.play_steel_hit();
+                    self.state
+                        .particle_system
+                        .steel_impact(brick.x + brick.width / 2.0, brick.y + brick.height / 2.0);
+                    if brick.health == 0 {
+                        brick.active = false;
+                        return true;
+                    }
+                }
+                false
+            }
+            BrickType::Regenerating => {
+                brick.active = false;
+                brick.is_hit = true;
+                brick.regen_timer = REGENERATING_DURATION;
+                true
+            }
+        }
+    }
+
+    fn trigger_exploding_brick_chain(&mut self, exploding_idx: usize) -> (u32, u32) {
+        let bx = self.state.bricks[exploding_idx].x + BRICK_WIDTH / 2.0;
+        let by = self.state.bricks[exploding_idx].y + BRICK_HEIGHT / 2.0;
+        let mut chain_count = 0;
+        let mut gained_score = 0;
+        let mut destroyed_bricks = 0;
+        let mut chain_targets = Vec::new();
+
+        for (other_idx, other_brick) in self.state.bricks.iter().enumerate() {
+            if other_idx == exploding_idx || !other_brick.active {
+                continue;
+            }
+
+            let ox = other_brick.x + BRICK_WIDTH / 2.0;
+            let oy = other_brick.y + BRICK_HEIGHT / 2.0;
+            let dist = ((bx - ox).powi(2) + (by - oy).powi(2)).sqrt();
+            if dist < EXPLODING_RADIUS {
+                chain_targets.push(other_idx);
+            }
+        }
+
+        for other_idx in chain_targets {
+            let was_exploding = self.state.bricks[other_idx].brick_type == BrickType::Exploding;
+            let was_active = self.state.bricks[other_idx].active;
+            let destroyed = self.resolve_auxiliary_brick_hit(other_idx);
+            if destroyed {
+                chain_count += 1;
+                gained_score += BRICK_POINTS;
+                destroyed_bricks += 1;
+                let brick = &self.state.bricks[other_idx];
+                self.emit_destroyed_brick_feedback(
+                    brick.brick_type,
+                    brick.x + BRICK_WIDTH / 2.0,
+                    brick.y + BRICK_HEIGHT / 2.0,
+                    brick.color,
+                );
+
+                if was_exploding && was_active {
+                    let (nested_score, nested_destroyed) =
+                        self.trigger_exploding_brick_chain(other_idx);
+                    gained_score += nested_score;
+                    destroyed_bricks += nested_destroyed;
+                }
+            }
+        }
+
+        if chain_count > 2 {
+            self.state.screen_flash = 0.3;
+        }
+
+        (gained_score, destroyed_bricks)
+    }
+
+    fn emit_destroyed_brick_feedback(
+        &mut self,
+        brick_type: BrickType,
+        center_x: f32,
+        center_y: f32,
+        color: Color,
+    ) {
+        match brick_type {
+            BrickType::Frozen => {
+                self.state
+                    .particle_system
+                    .frozen_shatter(center_x, center_y);
+            }
+            BrickType::Exploding => {
+                self.state
+                    .particle_system
+                    .explosion_burst(center_x, center_y);
+                self.state.screen_flash = self.state.screen_flash.max(0.22);
+            }
+            _ => {
+                self.state
+                    .particle_system
+                    .brick_destruction(center_x, center_y, color);
+            }
+        }
+    }
+
+    fn play_brick_feedback_sound(&self, brick_type: BrickType, destroyed: bool) {
+        match brick_type {
+            BrickType::Frozen if destroyed => self.state.audio.play_frozen_shatter(),
+            BrickType::Exploding if destroyed => self.state.audio.play_exploding_burst(),
+            BrickType::Steel => self.state.audio.play_steel_hit(),
+            BrickType::Regenerating if destroyed => self.state.audio.play_regenerating_break(),
+            _ if destroyed => self.state.audio.play_brick_destroy(),
+            _ => {}
+        }
+    }
+
     fn track_multiball_achievement(&mut self) {
         let active_balls = self.state.balls.iter().filter(|ball| ball.active).count();
         if active_balls >= MAX_BALLS {
@@ -175,16 +322,241 @@ impl Game {
         }
     }
 
+    fn dev_powerup_catalog() -> [PowerUpType; 8] {
+        [
+            PowerUpType::MultiBall,
+            PowerUpType::PaddleExtend,
+            PowerUpType::SlowTime,
+            PowerUpType::Laser,
+            PowerUpType::Shield,
+            PowerUpType::Bomb,
+            PowerUpType::Magnetize,
+            PowerUpType::PaddleShrink,
+        ]
+    }
+
+    fn toggle_dev_menu(&mut self) {
+        if self.state.dev_tools.enabled {
+            self.state.dev_tools.open = !self.state.dev_tools.open;
+            self.state.dev_tools.selected_row = 0;
+        }
+    }
+
+    fn can_open_dev_menu(&self) -> bool {
+        self.state.dev_tools.enabled
+            && matches!(
+                self.state.phase,
+                GamePhase::MainMenu
+                    | GamePhase::LevelComplete
+                    | GamePhase::GameOver
+                    | GamePhase::Victory
+            )
+            || (self.state.dev_tools.enabled
+                && self.state.phase == GamePhase::Playing
+                && self.state.is_paused)
+    }
+
+    fn activate_selected_level(&mut self) {
+        let level = self.state.dev_tools.selected_level;
+        match self.state.phase {
+            GamePhase::MainMenu | GamePhase::GameOver | GamePhase::Victory => {
+                self.start_fresh_run_at_level(level);
+            }
+            GamePhase::Playing | GamePhase::LevelComplete => {
+                self.jump_to_level(level);
+            }
+        }
+    }
+
+    fn reset_ball_and_paddle_state(&mut self) {
+        let speed_multiplier = self.state.difficulty.ball_speed_multiplier();
+        self.state.paddle.width = self.state.paddle.normal_width;
+        self.state.paddle.is_extended = false;
+        self.state.paddle.is_shrunk = false;
+        self.state.paddle.shield_count = 0;
+        self.state.paddle.magnetized_ball = None;
+        self.state.paddle.x = (SCREEN_WIDTH - self.state.paddle.width) / 2.0;
+        self.state.laser_shots.clear();
+        self.state.active_powerups.clear();
+        self.state.balls = vec![Ball {
+            x: SCREEN_WIDTH / 2.0,
+            y: PADDLE_Y - PADDLE_HEIGHT * 2.0,
+            vx: 2.0 * speed_multiplier,
+            vy: -BALL_BASE_SPEED * speed_multiplier,
+            radius: BALL_RADIUS,
+            active: true,
+            is_magnetized: false,
+            speed_multiplier: 1.0,
+            frozen_timer: 0,
+        }];
+    }
+
+    fn clear_active_powerup_effects(&mut self) {
+        self.state.active_powerups.clear();
+        self.state.powerups.clear();
+        self.state.laser_shots.clear();
+        self.state.paddle.width = self.state.paddle.normal_width;
+        self.state.paddle.is_extended = false;
+        self.state.paddle.is_shrunk = false;
+        self.state.paddle.shield_count = 0;
+        self.state.paddle.magnetized_ball = None;
+        for ball in &mut self.state.balls {
+            ball.is_magnetized = false;
+            ball.frozen_timer = 0;
+            ball.speed_multiplier = 1.0;
+        }
+    }
+
+    fn start_fresh_run_at_level(&mut self, level: usize) {
+        self.state.score = 0;
+        self.state.lives = self.state.difficulty.starting_lives();
+        self.state.phase = GamePhase::Playing;
+        self.state.is_paused = false;
+        self.state.dev_tools.open = false;
+        self.state.game_start_frame = self.state.frame_count;
+        self.state.run_starting_lives = self.state.lives;
+        self.state.audio.start_music();
+        self.load_level(level);
+    }
+
+    fn jump_to_level(&mut self, level: usize) {
+        self.state.phase = GamePhase::Playing;
+        self.state.is_paused = false;
+        self.state.dev_tools.open = false;
+        self.state.audio.start_music();
+        self.load_level(level);
+    }
+
+    fn apply_dev_menu_action(&mut self) {
+        match self.state.dev_tools.selected_row {
+            0 => self.activate_selected_level(),
+            3 => self.jump_to_level(self.state.dev_tools.selected_level),
+            4 => self.start_fresh_run_at_level(self.state.dev_tools.selected_level),
+            5 => {
+                let current_level = self.state.level.max(1);
+                self.jump_to_level(current_level);
+            }
+            6 => {
+                if self.state.phase == GamePhase::Playing {
+                    let powerup =
+                        Self::dev_powerup_catalog()[self.state.dev_tools.selected_powerup_index];
+                    self.apply_powerup(powerup);
+                }
+            }
+            7 => {
+                if self.state.phase == GamePhase::Playing {
+                    self.clear_active_powerup_effects();
+                }
+            }
+            8 => {
+                if self.state.phase == GamePhase::LevelComplete {
+                    self.state.level_complete_timer = 0;
+                    self.state.dev_tools.open = false;
+                } else if self.state.phase == GamePhase::Playing {
+                    self.reset_ball_and_paddle_state();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn is_dev_menu_action_available(&self, row: usize) -> bool {
+        match row {
+            0 => true,
+            1 => true,
+            2 => true,
+            3 => matches!(
+                self.state.phase,
+                GamePhase::Playing | GamePhase::LevelComplete
+            ),
+            4 => matches!(
+                self.state.phase,
+                GamePhase::MainMenu
+                    | GamePhase::Playing
+                    | GamePhase::LevelComplete
+                    | GamePhase::GameOver
+                    | GamePhase::Victory
+            ),
+            5 => self.state.phase == GamePhase::Playing,
+            6 => self.state.phase == GamePhase::Playing,
+            7 => self.state.phase == GamePhase::Playing,
+            8 => {
+                self.state.phase == GamePhase::Playing
+                    || self.state.phase == GamePhase::LevelComplete
+            }
+            _ => false,
+        }
+    }
+
+    fn update_dev_menu(&mut self) {
+        if !self.can_open_dev_menu() {
+            self.state.dev_tools.open = false;
+            return;
+        }
+
+        if is_key_pressed(KeyCode::F1) {
+            self.toggle_dev_menu();
+        }
+
+        if !self.state.dev_tools.open {
+            return;
+        }
+
+        if is_key_pressed(KeyCode::Escape) {
+            self.state.dev_tools.open = false;
+            return;
+        }
+
+        if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
+            self.state.dev_tools.selected_row = self.state.dev_tools.selected_row.saturating_sub(1);
+        }
+        if is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::S) {
+            self.state.dev_tools.selected_row =
+                (self.state.dev_tools.selected_row + 1).min(Self::DEV_MENU_ROW_COUNT - 1);
+        }
+
+        let adjust_left = is_key_pressed(KeyCode::Left) || is_key_pressed(KeyCode::A);
+        let adjust_right = is_key_pressed(KeyCode::Right) || is_key_pressed(KeyCode::D);
+        if adjust_left || adjust_right {
+            let delta = if adjust_right { 1isize } else { -1isize };
+            match self.state.dev_tools.selected_row {
+                0 => {
+                    let level = self.state.dev_tools.selected_level as isize + delta;
+                    self.state.dev_tools.selected_level =
+                        level.clamp(1, NUM_LEVELS as isize) as usize;
+                }
+                1 => {
+                    let max = Self::dev_powerup_catalog().len() as isize - 1;
+                    let index = self.state.dev_tools.selected_powerup_index as isize + delta;
+                    self.state.dev_tools.selected_powerup_index = index.clamp(0, max) as usize;
+                }
+                2 => {
+                    self.state.dev_tools.infinite_lives = !self.state.dev_tools.infinite_lives;
+                }
+                _ => {}
+            }
+        }
+
+        if (is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space))
+            && self.is_dev_menu_action_available(self.state.dev_tools.selected_row)
+        {
+            self.apply_dev_menu_action();
+        }
+    }
+
     pub fn start_menu(&mut self) {
         self.state.phase = GamePhase::MainMenu;
         self.state.score = 0;
         self.state.lives = self.state.difficulty.starting_lives();
         self.state.level = 1;
+        self.state.dev_tools.selected_level = 1;
+        self.refresh_music_state();
         self.state.audio.stop_music();
     }
 
     pub fn start_game(&mut self) {
         self.state.phase = GamePhase::Playing;
+        self.refresh_music_state();
         self.state.audio.start_music();
         self.state.game_start_frame = self.state.frame_count;
         self.state.run_starting_lives = self.state.difficulty.starting_lives();
@@ -193,6 +565,7 @@ impl Game {
 
     pub fn load_level(&mut self, level_num: usize) {
         self.state.level = level_num.min(NUM_LEVELS);
+        self.state.dev_tools.selected_level = self.state.level;
         self.state.bricks = level::create_level_bricks(level_num);
         self.state.powerups.clear();
         self.state.active_powerups.clear();
@@ -225,6 +598,7 @@ impl Game {
         self.state.paddle.shield_count = 0;
         self.state.paddle.magnetized_ball = None;
         self.reset_level_tracking();
+        self.refresh_music_state();
     }
 
     pub async fn update(&mut self) {
@@ -250,6 +624,11 @@ impl Game {
     }
 
     fn update_menu(&mut self) {
+        self.update_dev_menu();
+        if self.state.dev_tools.open {
+            return;
+        }
+
         // Keyboard: Spacebar to start
         if is_key_pressed(KeyCode::Space) {
             self.start_game();
@@ -348,6 +727,7 @@ impl Game {
 
         // Skip game updates if paused
         if self.state.is_paused {
+            self.update_dev_menu();
             return;
         }
 
@@ -367,6 +747,7 @@ impl Game {
         self.check_game_conditions();
 
         self.track_multiball_achievement();
+        self.refresh_music_state();
     }
 
     fn update_paddle(&mut self) {
@@ -446,7 +827,7 @@ impl Game {
             ball.y += ball.vy * slow_time_multiplier;
 
             // Emit ball trail particles
-            if self.state.frame_count % 3 == 0 {
+            if self.state.frame_count.is_multiple_of(3) {
                 self.state
                     .particle_system
                     .ball_trail(ball.x, ball.y, self.state.theme_colors.ball);
@@ -494,7 +875,9 @@ impl Game {
 
         // Only lose 1 life when ALL balls are gone
         if self.state.balls.is_empty() {
-            self.state.lives -= 1;
+            if !self.state.dev_tools.infinite_lives {
+                self.state.lives -= 1;
+            }
 
             // Reset paddle state on life lost
             self.state.paddle.width = self.state.paddle.normal_width;
@@ -577,7 +960,7 @@ impl Game {
 
         // Check ball-paddle collisions
         for ball in &mut self.state.balls {
-            if crate::physics::check_ball_paddle_collision(ball, &mut self.state.paddle) {
+            if crate::physics::check_ball_paddle_collision(ball, &self.state.paddle) {
                 // [NEW] Play paddle hit sound
                 self.state.audio.play_paddle_hit();
 
@@ -591,35 +974,67 @@ impl Game {
         }
 
         // Check ball-brick collisions
-        let mut bricks_to_destroy = Vec::new();
-        for (idx, brick) in self.state.bricks.iter_mut().enumerate() {
-            if !brick.active {
+        for idx in 0..self.state.bricks.len() {
+            if !self.state.bricks[idx].active {
                 continue;
             }
-            for ball in &mut self.state.balls {
-                if crate::physics::check_ball_brick_collision(ball, brick) {
-                    bricks_to_destroy.push(idx);
-                    pending_score += BRICK_POINTS;
-                    destroyed_bricks += 1;
-
-                    // Add floating score popup
-                    self.state.score_popups.push(crate::types::ScorePopup {
-                        x: brick.x + BRICK_WIDTH / 2.0,
-                        y: brick.y + BRICK_HEIGHT / 2.0,
-                        value: BRICK_POINTS as i32,
-                        lifetime: 1.0,
-                        max_lifetime: 1.0,
-                    });
-
-                    // [NEW] Play brick destroy sound
-                    self.state.audio.play_brick_destroy();
-
-                    // Emit particles on brick destruction
-                    self.state.particle_system.brick_destruction(
-                        brick.x + BRICK_WIDTH / 2.0,
-                        brick.y + BRICK_HEIGHT / 2.0,
+            for ball_idx in 0..self.state.balls.len() {
+                let (
+                    collided,
+                    destroyed_now,
+                    was_exploding,
+                    brick_x,
+                    brick_y,
+                    brick_color,
+                    brick_type,
+                ) = {
+                    let brick = &mut self.state.bricks[idx];
+                    let ball = &mut self.state.balls[ball_idx];
+                    let was_active = brick.active;
+                    let was_exploding = brick.brick_type == BrickType::Exploding;
+                    let collided = crate::physics::check_ball_brick_collision(ball, brick);
+                    (
+                        collided,
+                        was_active && !brick.active,
+                        was_exploding,
+                        brick.x,
+                        brick.y,
                         brick.color,
-                    );
+                        brick.brick_type,
+                    )
+                };
+
+                if collided {
+                    if brick_type == BrickType::Steel && !destroyed_now {
+                        self.play_brick_feedback_sound(brick_type, false);
+                    }
+                    if destroyed_now {
+                        pending_score += BRICK_POINTS;
+                        destroyed_bricks += 1;
+
+                        self.state.score_popups.push(crate::types::ScorePopup {
+                            x: brick_x + BRICK_WIDTH / 2.0,
+                            y: brick_y + BRICK_HEIGHT / 2.0,
+                            value: BRICK_POINTS as i32,
+                            lifetime: 1.0,
+                            max_lifetime: 1.0,
+                        });
+
+                        self.play_brick_feedback_sound(brick_type, true);
+                        self.emit_destroyed_brick_feedback(
+                            brick_type,
+                            brick_x + BRICK_WIDTH / 2.0,
+                            brick_y + BRICK_HEIGHT / 2.0,
+                            brick_color,
+                        );
+
+                        if was_exploding {
+                            let (chain_score, chain_destroyed) =
+                                self.trigger_exploding_brick_chain(idx);
+                            pending_score += chain_score;
+                            destroyed_bricks += chain_destroyed;
+                        }
+                    }
 
                     // Spawn power-up with difficulty-adjusted chance
                     let spawn_chance = self.state.difficulty.powerup_spawn_chance();
@@ -640,14 +1055,14 @@ impl Game {
 
                         // Emit particles for power-up spawn
                         self.state.particle_system.power_up_spawn(
-                            brick.x + BRICK_WIDTH / 2.0,
-                            brick.y,
+                            brick_x + BRICK_WIDTH / 2.0,
+                            brick_y,
                             self.state.theme_colors.accent,
                         );
 
                         self.state.powerups.push(PowerUp {
-                            x: brick.x + BRICK_WIDTH / 2.0,
-                            y: brick.y,
+                            x: brick_x + BRICK_WIDTH / 2.0,
+                            y: brick_y,
                             power_type,
                             active: true,
                         });
@@ -657,54 +1072,19 @@ impl Game {
             }
         }
 
-        for idx in bricks_to_destroy {
-            let brick = &self.state.bricks[idx];
-
-            // Handle Exploding brick chain reaction
-            if brick.brick_type == BrickType::Exploding {
-                let bx = brick.x + BRICK_WIDTH / 2.0;
-                let by = brick.y + BRICK_HEIGHT / 2.0;
-                let mut chain_count = 0;
-
-                for (explode_idx, other_brick) in self.state.bricks.iter_mut().enumerate() {
-                    if !other_brick.active || explode_idx == idx {
-                        continue;
-                    }
-
-                    let ox = other_brick.x + BRICK_WIDTH / 2.0;
-                    let oy = other_brick.y + BRICK_HEIGHT / 2.0;
-                    let dist = ((bx - ox).powi(2) + (by - oy).powi(2)).sqrt();
-
-                    if dist < EXPLODING_RADIUS {
-                        other_brick.active = false;
-                        pending_score += BRICK_POINTS;
-                        destroyed_bricks += 1;
-                        chain_count += 1;
-
-                        self.state
-                            .particle_system
-                            .brick_destruction(ox, oy, other_brick.color);
-                    }
-                }
-
-                // Screen flash on chain reaction
-                if chain_count > 2 {
-                    self.state.screen_flash = 0.3;
-                }
-            }
-
-            self.state.bricks[idx].active = false;
-        }
-
         // Update Regenerating bricks (respawn after delay)
         for brick in &mut self.state.bricks {
-            if !brick.active && brick.brick_type == BrickType::Regenerating {
-                if brick.regen_timer > 0 {
-                    brick.regen_timer -= 1;
-                    if brick.regen_timer == 0 {
-                        brick.active = true;
-                        brick.is_hit = false;
-                    }
+            if !brick.active && brick.brick_type == BrickType::Regenerating && brick.regen_timer > 0
+            {
+                brick.regen_timer -= 1;
+                if brick.regen_timer == 0 {
+                    brick.active = true;
+                    brick.is_hit = false;
+                    self.state.audio.play_regenerating_respawn();
+                    self.state.particle_system.regenerating_respawn(
+                        brick.x + brick.width / 2.0,
+                        brick.y + brick.height / 2.0,
+                    );
                 }
             }
         }
@@ -746,44 +1126,59 @@ impl Game {
 
         // [NEW] Handle laser collisions with bricks
         let mut lasers_to_remove = Vec::new();
-        for (laser_idx, laser) in self.state.laser_shots.iter_mut().enumerate() {
-            if !laser.active {
+        for laser_idx in 0..self.state.laser_shots.len() {
+            if !self.state.laser_shots[laser_idx].active {
                 continue;
             }
 
             // Move laser up
-            laser.y -= LASER_SPEED;
+            self.state.laser_shots[laser_idx].y -= LASER_SPEED;
 
             // Remove if off-screen
-            if laser.y < 0.0 {
-                laser.active = false;
+            if self.state.laser_shots[laser_idx].y < 0.0 {
+                self.state.laser_shots[laser_idx].active = false;
                 continue;
             }
 
             // Check collisions with bricks
-            for brick in self.state.bricks.iter_mut() {
+            for brick_idx in 0..self.state.bricks.len() {
+                let brick = &self.state.bricks[brick_idx];
                 if !brick.active {
                     continue;
                 }
 
+                let laser = &self.state.laser_shots[laser_idx];
                 // Simple rect-rect collision
                 if laser.x < brick.x + brick.width
                     && laser.x + laser.width > brick.x
                     && laser.y < brick.y + brick.height
                     && laser.y + laser.height > brick.y
                 {
-                    brick.active = false;
-                    pending_score += BRICK_POINTS;
-                    destroyed_bricks += 1;
-                    laser.active = false;
+                    let was_exploding =
+                        self.state.bricks[brick_idx].brick_type == BrickType::Exploding;
+                    let destroyed = self.resolve_auxiliary_brick_hit(brick_idx);
+                    self.state.laser_shots[laser_idx].active = false;
                     lasers_to_remove.push(laser_idx);
 
-                    // Emit particles
-                    self.state.particle_system.brick_destruction(
-                        brick.x + BRICK_WIDTH / 2.0,
-                        brick.y + BRICK_HEIGHT / 2.0,
-                        brick.color,
-                    );
+                    if destroyed {
+                        let brick = &self.state.bricks[brick_idx];
+                        pending_score += BRICK_POINTS;
+                        destroyed_bricks += 1;
+                        self.play_brick_feedback_sound(brick.brick_type, true);
+                        self.emit_destroyed_brick_feedback(
+                            brick.brick_type,
+                            brick.x + BRICK_WIDTH / 2.0,
+                            brick.y + BRICK_HEIGHT / 2.0,
+                            brick.color,
+                        );
+
+                        if was_exploding {
+                            let (chain_score, chain_destroyed) =
+                                self.trigger_exploding_brick_chain(brick_idx);
+                            pending_score += chain_score;
+                            destroyed_bricks += chain_destroyed;
+                        }
+                    }
                     break;
                 }
             }
@@ -932,7 +1327,8 @@ impl Game {
         let mut destroyed_score = 0;
         let mut destroyed_bricks = 0;
 
-        for brick in &mut self.state.bricks {
+        let mut targets = Vec::new();
+        for (brick_idx, brick) in self.state.bricks.iter().enumerate() {
             if !brick.active {
                 continue;
             }
@@ -943,14 +1339,31 @@ impl Game {
 
             // Check if brick is in explosion radius
             if dx < bomb_radius && dy < bomb_radius * 1.5 {
-                brick.active = false;
+                targets.push(brick_idx);
+            }
+        }
+
+        for brick_idx in targets {
+            let was_exploding = self.state.bricks[brick_idx].brick_type == BrickType::Exploding;
+            let destroyed = self.resolve_auxiliary_brick_hit(brick_idx);
+            if destroyed {
+                let brick = &self.state.bricks[brick_idx];
                 destroyed_score += BRICK_POINTS;
                 destroyed_bricks += 1;
-                self.state.particle_system.brick_destruction(
-                    brick_center_x,
-                    brick_center_y,
+                self.play_brick_feedback_sound(brick.brick_type, true);
+                self.emit_destroyed_brick_feedback(
+                    brick.brick_type,
+                    brick.x + BRICK_WIDTH / 2.0,
+                    brick.y + BRICK_HEIGHT / 2.0,
                     brick.color,
                 );
+
+                if was_exploding {
+                    let (chain_score, chain_destroyed) =
+                        self.trigger_exploding_brick_chain(brick_idx);
+                    destroyed_score += chain_score;
+                    destroyed_bricks += chain_destroyed;
+                }
             }
         }
 
@@ -989,6 +1402,11 @@ impl Game {
     }
 
     fn update_level_complete(&mut self) {
+        self.update_dev_menu();
+        if self.state.dev_tools.open {
+            return;
+        }
+
         if self.state.level_complete_timer > 0 {
             self.state.level_complete_timer -= 1;
         } else {
@@ -1011,6 +1429,10 @@ impl Game {
     }
 
     fn update_game_over(&mut self) {
+        self.update_dev_menu();
+        if self.state.dev_tools.open {
+            return;
+        }
         if is_key_pressed(KeyCode::Space) {
             self.start_menu();
         }

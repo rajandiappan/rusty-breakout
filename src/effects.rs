@@ -196,6 +196,70 @@ impl ParticleSystem {
         self.add_emitter(emitter);
     }
 
+    pub fn steel_impact(&mut self, x: f32, y: f32) {
+        let mut sparks = ParticleEmitter::new(x, y);
+        sparks.emit_burst(10, (90.0, 180.0), 0.3, 2.2, Color::new(0.9, 0.95, 1.0, 1.0));
+        self.add_emitter(sparks);
+
+        let mut dust = ParticleEmitter::new(x, y);
+        dust.emit_burst(
+            8,
+            (40.0, 90.0),
+            0.45,
+            3.0,
+            Color::new(0.35, 0.38, 0.45, 0.9),
+        );
+        self.add_emitter(dust);
+    }
+
+    pub fn regenerating_respawn(&mut self, x: f32, y: f32) {
+        let mut burst = ParticleEmitter::new(x, y);
+        burst.emit_burst(
+            18,
+            (80.0, 150.0),
+            0.45,
+            2.8,
+            Color::new(0.95, 0.65, 1.0, 1.0),
+        );
+        self.add_emitter(burst);
+
+        let mut halo = ParticleEmitter::new(x, y);
+        halo.emit_burst(12, (20.0, 50.0), 0.6, 3.4, Color::new(0.6, 0.2, 0.9, 0.8));
+        self.add_emitter(halo);
+    }
+
+    pub fn frozen_shatter(&mut self, x: f32, y: f32) {
+        let mut shards = ParticleEmitter::new(x, y);
+        shards.emit_burst(16, (80.0, 170.0), 0.5, 2.6, Color::new(0.8, 0.95, 1.0, 1.0));
+        self.add_emitter(shards);
+
+        let mut mist = ParticleEmitter::new(x, y);
+        mist.emit_burst(12, (25.0, 70.0), 0.6, 3.6, Color::new(0.5, 0.8, 1.0, 0.75));
+        self.add_emitter(mist);
+    }
+
+    pub fn explosion_burst(&mut self, x: f32, y: f32) {
+        let mut blast = ParticleEmitter::new(x, y);
+        blast.emit_burst(
+            24,
+            (110.0, 230.0),
+            0.45,
+            3.0,
+            Color::new(1.0, 0.65, 0.1, 1.0),
+        );
+        self.add_emitter(blast);
+
+        let mut ember = ParticleEmitter::new(x, y);
+        ember.emit_burst(
+            16,
+            (70.0, 150.0),
+            0.55,
+            2.4,
+            Color::new(1.0, 0.3, 0.05, 0.9),
+        );
+        self.add_emitter(ember);
+    }
+
     pub fn ball_trail(&mut self, x: f32, y: f32, color: Color) {
         let mut emitter = ParticleEmitter::new(x, y);
         emitter.emit_burst(2, (10.0, 30.0), 0.3, 0.5, color);
