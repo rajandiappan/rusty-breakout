@@ -131,6 +131,18 @@ AudioManager with sound effects for all game events:
 
 ## Building & Running
 
+## Windows Downloads
+
+Prebuilt Windows builds are published on GitHub Releases:
+
+- Portable ZIP: unzip and run `breakout.exe`
+- Installer: run the setup `.exe` for shortcuts and uninstall support
+
+Latest releases: https://github.com/rajandiappan/rusty-breakout/releases
+
+If you just want to play on Windows, use a GitHub Release asset.
+If you want to develop or test locally, use Cargo.
+
 ### Prerequisites
 - Rust 1.70+ ([Install Rust](https://www.rust-lang.org/tools/install))
 - Cargo (comes with Rust)
@@ -408,6 +420,11 @@ Development work should remain quality-assured with local checks and CI.
   - The repository uses a GitHub Actions workflow at .github/workflows/ci.yml
   - It runs cargo check, cargo test, and a release build on push and PRs
   - Logs are available in the Actions tab for each run
+- Windows release automation:
+  - Tagged builds like `v0.1.0` use `.github/workflows/release.yml`
+  - The release workflow builds a portable Windows zip and an installer
+  - Tagged runs publish both assets to GitHub Releases
+  - Manual runs can be used as packaging dry runs without publishing
 
 
 ## License

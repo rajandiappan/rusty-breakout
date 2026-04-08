@@ -59,23 +59,39 @@ pub const LASER_HEIGHT: f32 = 15.0;
 pub const LASER_SPEED: f32 = 8.0;
 
 // Power-up symbols and descriptions
+#[allow(dead_code)]
 pub const POWERUP_MULTIBALL_SYMBOL: &str = "⊕"; // Circle with cross (multiple balls)
+#[allow(dead_code)]
 pub const POWERUP_MULTIBALL_LABEL: &str = "M"; // Fallback letter
+#[allow(dead_code)]
 pub const POWERUP_EXTEND_SYMBOL: &str = "▬"; // Horizontal bar (paddle extension)
+#[allow(dead_code)]
 pub const POWERUP_EXTEND_LABEL: &str = "P"; // Fallback letter
+#[allow(dead_code)]
 pub const POWERUP_SLOWTIME_SYMBOL: &str = "◐"; // Half circle (time/slow effect)
+#[allow(dead_code)]
 pub const POWERUP_SLOWTIME_LABEL: &str = "S"; // Fallback letter
 
 // [NEW] Phase 2 extended power-up symbols
+#[allow(dead_code)]
 pub const POWERUP_LASER_SYMBOL: &str = "↑"; // Up arrow (laser fire)
+#[allow(dead_code)]
 pub const POWERUP_LASER_LABEL: &str = "L";
+#[allow(dead_code)]
 pub const POWERUP_SHIELD_SYMBOL: &str = "◇"; // Diamond (protection)
+#[allow(dead_code)]
 pub const POWERUP_SHIELD_LABEL: &str = "X";
+#[allow(dead_code)]
 pub const POWERUP_BOMB_SYMBOL: &str = "◈"; // Diamond with center (explosion)
+#[allow(dead_code)]
 pub const POWERUP_BOMB_LABEL: &str = "B";
+#[allow(dead_code)]
 pub const POWERUP_MAGNETIZE_SYMBOL: &str = "●"; // Filled circle (magnetic)
+#[allow(dead_code)]
 pub const POWERUP_MAGNETIZE_LABEL: &str = "Z";
+#[allow(dead_code)]
 pub const POWERUP_SHRINK_SYMBOL: &str = "◈"; // Circle bomb (shrink - power-down)
+#[allow(dead_code)]
 pub const POWERUP_SHRINK_LABEL: &str = "S"; // Fallback letter
 
 // Game constants
