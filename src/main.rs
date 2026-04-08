@@ -6,32 +6,35 @@ mod console_hide {
     }
 
     pub fn hide_console() {
-        unsafe { FreeConsole(); }
+        unsafe {
+            FreeConsole();
+        }
     }
 }
 
-mod constants;
-mod types;
-mod game;
+mod achievements;
+mod audio;
 mod ball;
-mod paddle;
 mod brick;
-mod powerup;
-mod physics;
+mod constants;
+mod effects;
+mod game;
+mod gamepad;
 mod level;
-mod ui;
+mod paddle;
+mod persistence;
+mod physics;
+mod powerup;
 mod settings;
 mod themes;
-mod achievements;
-mod effects;
-mod audio;
-mod gamepad;
+mod types;
+mod ui;
 
 #[cfg(windows)]
 use console_hide::hide_console;
 
-use macroquad::prelude::*;
 use game::Game;
+use macroquad::prelude::*;
 
 #[macroquad::main("Breakout")]
 async fn main() {

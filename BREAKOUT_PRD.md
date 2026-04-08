@@ -1,5 +1,7 @@
 # Breakout Game - Product Requirements Document (PRD)
 
+> Status note (2026-04-08): this document primarily captures the original planned scope for the project. The current implementation has moved beyond this baseline in several areas, including 10 playable levels, advanced brick types, additional power-ups, persistence, controller support, audio, and expanded achievement wiring. Treat this PRD as historical product scope unless a section explicitly reflects the shipped code. For current implementation status, see `README.md`, `docs/phase_5_implementation_plan.md`, and `docs/implementation_backlog.md`.
+
 ## 1. Executive Summary
 
 **Project Name:** Breakout: Classic Arcade Revival  

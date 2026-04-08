@@ -44,7 +44,7 @@ impl Difficulty {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ThemeType {
     Classic,
     Dark,
@@ -91,6 +91,8 @@ impl ThemeType {
 pub struct GameSettings {
     pub difficulty: Difficulty,
     pub theme: ThemeType,
+    #[serde(default)]
+    pub seen_themes: Vec<ThemeType>,
     pub music_volume: f32,
     pub sfx_volume: f32,
     pub particle_effects: bool,
@@ -103,6 +105,7 @@ impl Default for GameSettings {
         GameSettings {
             difficulty: Difficulty::Normal,
             theme: ThemeType::Classic,
+            seen_themes: vec![ThemeType::Classic],
             music_volume: 0.7,
             sfx_volume: 0.8,
             particle_effects: true,

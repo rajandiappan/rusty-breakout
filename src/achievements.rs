@@ -236,6 +236,19 @@ fn all_achievement_ids() -> Vec<AchievementId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_path(name: &str) -> String {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_nanos();
+        std::env::temp_dir()
+            .join("rusty_breakout_tests")
+            .join(format!("{name}_{timestamp}.json"))
+            .to_string_lossy()
+            .into_owned()
+    }
 
     #[test]
     fn test_achievement_creation() {
@@ -266,5 +279,31 @@ mod tests {
         let mut ach = Achievement::new(AchievementId::Sharpshooter);
         ach.progress = 50;
         assert!(ach.progress_percentage() > 49.0 && ach.progress_percentage() < 51.0);
+    }
+
+    #[test]
+    fn test_achievement_manager_save_load_round_trip() {
+        let path = unique_temp_path("achievement_round_trip");
+        let mut manager = AchievementManager::new();
+        manager.increment_progress(AchievementId::TimeBender, 7);
+        manager.unlock(AchievementId::RapidFire);
+
+        manager.save_to_file(&path).unwrap();
+        let loaded = AchievementManager::load_from_file(&path).unwrap();
+
+        assert_eq!(
+            loaded
+                .achievements
+                .get(&AchievementId::TimeBender)
+                .expect("time bender exists")
+                .progress,
+            7
+        );
+        assert!(
+            loaded.is_unlocked(AchievementId::RapidFire),
+            "rapid fire should remain unlocked after reload"
+        );
+
+        let _ = std::fs::remove_file(path);
     }
 }

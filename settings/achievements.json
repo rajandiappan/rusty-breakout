@@ -1,0 +1,82 @@
+{
+  "ThemeCollector": {
+    "id": "ThemeCollector",
+    "name": "Theme Collector",
+    "description": "Unlock all 5 color themes",
+    "progress": 0,
+    "target": 5,
+    "unlocked": false
+  },
+  "PerfectClear": {
+    "id": "PerfectClear",
+    "name": "Perfect Clear",
+    "description": "Complete all 5 levels without losing a life",
+    "progress": 0,
+    "target": 1,
+    "unlocked": false
+  },
+  "MultiBallMaster": {
+    "id": "MultiBallMaster",
+    "name": "Multi-Ball Master",
+    "description": "Keep 3 balls active for 30 consecutive seconds",
+    "progress": 0,
+    "target": 30,
+    "unlocked": false
+  },
+  "Sharpshooter": {
+    "id": "Sharpshooter",
+    "name": "Sharpshooter",
+    "description": "Destroy 100 bricks in a single level",
+    "progress": 0,
+    "target": 100,
+    "unlocked": false
+  },
+  "Speedrunner": {
+    "id": "Speedrunner",
+    "name": "Speedrunner",
+    "description": "Beat the game in under 5 minutes",
+    "progress": 0,
+    "target": 1,
+    "unlocked": false
+  },
+  "TimeBender": {
+    "id": "TimeBender",
+    "name": "Time Bender",
+    "description": "Use slow-time power-up 50 times total",
+    "progress": 0,
+    "target": 50,
+    "unlocked": false
+  },
+  "LuckyBreak": {
+    "id": "LuckyBreak",
+    "name": "Lucky Break",
+    "description": "Trigger 3 power-ups in 5 seconds",
+    "progress": 0,
+    "target": 1,
+    "unlocked": false
+  },
+  "HardcoreChampion": {
+    "id": "HardcoreChampion",
+    "name": "Hardcore Champion",
+    "description": "Complete hard difficulty",
+    "progress": 0,
+    "target": 1,
+    "unlocked": false
+  },
+  "PowerUpHoarder": {
+    "id": "PowerUpHoarder",
+    "name": "Power-Up Hoarder",
+    "description": "Collect 5 power-ups in one level",
+    "progress": 0,
+    "target": 5,
+    "unlocked": false
+  },
+  "RapidFire": {
+    "id": "RapidFire",
+    "name": "Rapid Fire",
+    "description": "Complete a level in under 60 seconds",
+    "progress": 0,
+    "target": 1,
+    "unlocked": false
+  }
+}

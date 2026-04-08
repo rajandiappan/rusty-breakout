@@ -6,6 +6,8 @@ use crate::gamepad::GamepadInput;
 use crate::settings::{Difficulty, ThemeType};
 use crate::themes::ThemeColors;
 use macroquad::color::Color;
+use std::collections::HashSet;
+use std::collections::VecDeque;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GamePhase {
@@ -126,7 +128,13 @@ pub struct GameState {
     pub powerups: Vec<PowerUp>,
     pub active_powerups: Vec<ActivePowerUp>,
     pub frame_count: usize,
+    pub game_start_frame: usize,
+    pub level_start_frame: usize,
     pub level_complete_timer: usize,
+    pub bricks_destroyed_this_level: u32,
+    pub powerups_collected_this_level: u32,
+    pub recent_powerup_frames: VecDeque<usize>,
+    pub three_ball_streak_frames: usize,
     // Phase 2 additions
     pub difficulty: Difficulty,
     pub current_theme: ThemeType,
@@ -140,6 +148,8 @@ pub struct GameState {
     pub gamepad: GamepadInput,       // [NEW] Gamepad/Controller input
     pub score_popups: Vec<ScorePopup>, // [NEW] Floating score text
     pub screen_flash: f32,           // [NEW] Screen flash intensity (0.0 = no flash)
+    pub run_starting_lives: u8,
+    pub seen_themes: HashSet<ThemeType>,
 }
 
 impl GameState {
@@ -148,6 +158,8 @@ impl GameState {
 
         let theme = ThemeType::Classic;
         let theme_colors = get_theme_colors(theme);
+        let mut seen_themes = HashSet::new();
+        seen_themes.insert(theme);
 
         Self {
             level: 1,
@@ -173,7 +185,13 @@ impl GameState {
             powerups: Vec::new(),
             active_powerups: Vec::new(),
             frame_count: 0,
+            game_start_frame: 0,
+            level_start_frame: 0,
             level_complete_timer: 0,
+            bricks_destroyed_this_level: 0,
+            powerups_collected_this_level: 0,
+            recent_powerup_frames: VecDeque::new(),
+            three_ball_streak_frames: 0,
             difficulty: Difficulty::Normal,
             current_theme: theme,
             theme_colors,
@@ -185,6 +203,8 @@ impl GameState {
             gamepad: GamepadInput::new(),
             score_popups: Vec::new(),
             screen_flash: 0.0,
+            run_starting_lives: STARTING_LIVES,
+            seen_themes,
         }
     }
 }

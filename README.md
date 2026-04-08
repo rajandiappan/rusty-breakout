@@ -3,16 +3,16 @@ SPDX-License-Identifier: MIT
 
 # Breakout Game - Rust + Macroquad Implementation
 
-A classic arcade-style Breakout/Arkanoid game implemented in Rust using the Macroquad game engine.
+A feature-rich Breakout/Arkanoid game implemented in Rust using the Macroquad game engine.
 
 ## Project Structure
 
 ```
 breakout/
 ├── Cargo.toml                    # Project dependencies and metadata
-├── BREAKOUT_PRD.md              # Complete Product Requirements Document
+├── BREAKOUT_PRD.md              # Product requirements reference
 ├── README.md                     # This file
-├── PHASE2_PROGRESS.md           # Phase 2 implementation progress
+├── docs/implementation_backlog.md # Prioritized remaining work
 └── src/
     ├── main.rs                  # Entry point and main game loop
     ├── constants.rs             # Game constants (screen size, speeds, colors)
@@ -20,41 +20,53 @@ breakout/
     ├── game.rs                  # Game state management and logic
     ├── physics.rs               # Collision detection and response
     ├── level.rs                 # Level definitions and generation
-    ├── ui.rs                    # Rendering and UI display (Phase 2: theme-aware)
+    ├── ui.rs                    # Rendering and UI display
     ├── ball.rs                  # Ball-specific behavior (expandable)
     ├── paddle.rs                # Paddle-specific behavior (expandable)
     ├── brick.rs                 # Brick-specific behavior (expandable)
     ├── powerup.rs               # Power-up-specific behavior (expandable)
     │
-    ├── settings.rs              # [PHASE 2] Difficulty and theme definitions
-    ├── themes.rs                # [PHASE 2] 5 color theme system with palettes
-    ├── achievements.rs          # [PHASE 2] Achievement tracking and management
-    ├── effects.rs               # [PHASE 2] Particle effects system (230 lines)
-    └── audio.rs                 # [PHASE 3] Audio system for game sound events
+    ├── settings.rs              # Difficulty and theme definitions
+    ├── themes.rs                # 5 color theme system with palettes
+    ├── achievements.rs          # Achievement tracking and management
+    ├── effects.rs               # Particle effects system
+    ├── audio.rs                 # Audio system for game sound events
+    └── persistence.rs           # Save/load helpers for high score persistence
 ```
 
 ## Overview
 
-This is a fully-featured Breakout game with Phase 3 audio and professional polish:
+This is a feature-rich Breakout game with persistence, advanced brick variants, and expanded arcade mechanics:
 
-- **5 Progressive Levels** with increasing difficulty
+- **10 Playable Levels**
+  - Levels 1-5: classic layouts
+  - Levels 6-10: advanced brick mixes and higher difficulty
 - **Ball Physics** with deterministic, frame-based movement
 - **Collision Detection** (walls, paddle, bricks)
-- **4 Power-Up Types + 1 Power-Down:**
+- **8 Power-Up / Power-Down Types:**
    - Multi-Ball: Spawn 2 additional balls
    - Paddle Extend: Increase paddle width PERMANENTLY until next level or Paddle Shrink
    - Slow Time: Reduce ball velocity by 50%
+   - Laser: Fire shots from the paddle
+   - Shield: Save a falling ball once
+   - Bomb: Destroy a local brick cluster
+   - Magnetize: Stick a ball to the paddle temporarily
    - Paddle Shrink: [POWER-DOWN] Decrease paddle width (collect Paddle Extend to reverse)
+- **Advanced Brick Types:**
+   - Frozen: Slows the ball on hit
+   - Exploding: Triggers local chain destruction
+   - Steel: Requires multiple hits
+   - Regenerating: Respawns after a delay
 - **Lives System** (configurable by difficulty: 2-5 lives)
-- **Score Tracking** with high score persistence
+- **Persistence:** High score, settings, and achievements are saved between runs
 - **Game States:** Main Menu, Playing, Level Complete, Game Over, Victory
 - **Difficulty Modes:** Easy, Normal, Hard with dynamic multipliers
 - **5 Color Themes:** Classic, Dark, Neon, CRT, Minimalist with T-key switching
 - **Particle Effects:** Brick explosions, paddle hits, power-up spawns/pickups
 - **Pause/Resume:** P-key toggle with pause overlay
-- **Audio System:** Sound effects for all game events (Phase 3)
-- **Achievement System:** Track gameplay metrics and unlock badges
-- **Settings Persistence:** Save and load user preferences
+- **Audio System:** Procedural sound effects and looping background music
+- **Achievement System:** Gameplay-triggered unlocks with persistence
+- **Gamepad Support:** Keyboard and controller input paths are both implemented
 
 ## Key Features
 
@@ -64,7 +76,7 @@ This is a fully-featured Breakout game with Phase 3 audio and professional polis
 - Proper collision detection using closest-point algorithm
 - Ball velocity clamping to prevent speed explosion
 
-### Difficulty System (Phase 2)
+### Difficulty System
 Selectable difficulty modes with dynamic multipliers:
 | Mode | Ball Speed | Paddle Width | Lives | Power-Up Chance |
 |------|-----------|--------------|-------|-----------------|
@@ -72,7 +84,7 @@ Selectable difficulty modes with dynamic multipliers:
 | Normal | 1.0x | 100px | 3 | 15% |
 | Hard | 1.3x | 70px (-30%) | 2 | 10% |
 
-### Visual Themes (Phase 2)
+### Visual Themes
 5 professional color schemes (cycle with T-key):
 - **Classic:** Original 8-bit arcade palette
 - **Dark:** Low-light gaming friendly
@@ -80,25 +92,27 @@ Selectable difficulty modes with dynamic multipliers:
 - **CRT:** Retro monitor scanlines and glow
 - **Minimalist:** Clean, flat design
 
-### Particle Effects (Phase 2)
+### Particle Effects
 Visual feedback system:
 - Brick destruction: 12-particle bursts with velocity
 - Paddle hits: 8-particle collision effects
 - Power-up spawns: 16-particle emission
 - Power-up pickups: 20-particle celebration effect
 
-### Pause & Settings (Phase 2)
+### Pause & Settings
 - **P-key pause:** Freeze gameplay while keeping particles/UI running
 - **Theme switching:** Real-time theme changes with T-key
+- **Difficulty switching:** D-key cycles Easy / Normal / Hard
+- **Volume and music controls:** `+`, `-`, and `M`
 - **Settings persistence:** Automatically save user preferences
 
-### Achievement System (Phase 2)
+### Achievement System
 10 achievements across 3 categories:
 - **Skill:** Sharpshooter, Rapid Fire, Perfect Clear, Speedrunner, Multi-Ball Master
 - **Collection:** Power-Up Hoarder, Lucky Break, Time Bender
 - **Exploration:** Theme Collector, Hardcore Champion
 
-### Audio System (Phase 3)
+### Audio System
 AudioManager with sound effects for all game events:
 - **Paddle Hit:** 400Hz beep (40ms) when ball touches paddle
 - **Brick Destroy:** 600Hz beep (80ms) on brick destruction
@@ -112,7 +126,8 @@ AudioManager with sound effects for all game events:
 - Ball radius: 5 pixels
 - Paddle: 100 pixels wide (150 when extended, 60 when shrunk), 15 pixels tall
 - Bricks: 60×20 pixels, 12×6 grid (72 per level)
-- Power-ups: 15% spawn chance, 60-frame duration
+- Levels: 10 total
+- Power-ups: 15% base spawn chance, timed effects use frame-based durations
 
 ## Building & Running
 
@@ -139,19 +154,21 @@ cargo run --release
 | SPACE | Start game / Play again |
 | P | Pause/Resume during gameplay |
 | T | Cycle through themes (5 color schemes) |
+| D | Cycle difficulty |
+| M | Toggle music |
+| `+` / `-` | Adjust SFX volume |
 | ESC | Quit to menu / Exit game |
+
+Controller support is also available through the `gamepad` input path.
 
 ## Gameplay
 
 1. **Main Menu:** Press SPACE to start
-2. **Playing:** Control paddle with arrow keys, destroy all bricks
-3. **Power-ups:** Fall from destroyed bricks (15% chance each)
-   - Gold (M): Spawn extra balls
-   - Green (P): Extend paddle PERMANENTLY (until next level or shrink)
-   - Purple (S): Slow down ball
-   - Red/Dark (S): Shrink paddle [POWER-DOWN] - collect green extend to reverse
+2. **Playing:** Control the paddle with arrow keys or gamepad input and destroy all bricks
+3. **Power-ups:** Fall from destroyed bricks with difficulty-adjusted spawn chance
+   - Multi-Ball, Paddle Extend, Slow Time, Laser, Shield, Bomb, Magnetize, Paddle Shrink
 4. **Level Complete:** Auto-advances after 2 seconds
-5. **Victory:** Complete all 5 levels to win!
+5. **Victory:** Complete all 10 levels to win
 6. **Game Over:** Run out of lives to lose
 
 ## Code Architecture
@@ -177,7 +194,12 @@ loop {
 ### Game State Management (game.rs)
 - `GameState`: Holds all game data (score, lives, balls, paddle, bricks, etc)
 - `Game`: Manages game flow and state transitions
-- Methods for level loading, collisions, power-ups, and rendering
+- Methods for level loading, collisions, power-ups, persistence, and rendering
+
+### Persistence
+- `persistence.rs`: File-backed high score helpers
+- `settings.rs`: Serialized user preferences and theme history
+- `achievements.rs`: Persistent achievement storage
 
 ### Physics (physics.rs)
 - `check_ball_paddle_collision()`: Paddle bounce with angle variation
@@ -258,7 +280,7 @@ Uses closest-point algorithm to determine entry side:
 
 - Brick destroyed: +10 points
 - Level completed: +1000 bonus points
-- All 5 levels completed: +5000 bonus points
+- All 10 levels completed: +5000 bonus points
 - High score is saved and displayed
 
 ## Power-Up System
@@ -303,12 +325,13 @@ Uses closest-point algorithm to determine entry side:
 
 ## Future Enhancement Ideas
 
-Phase 1, 2, and 3 (audio foundation) are complete. Phase 4+ ideas:
+Phase 1 through Phase 5 core work are largely complete. Future ideas:
 
 - Real audio synthesis using rodio or platform-specific audio APIs
 - Boss levels with special mechanics
 - Mobile touch controls
-- Advanced brick types (steel, explosive)
+- Environment hazards and moving formations
+- Extra particle variants for advanced effects
 - Curved paddle surface physics
 - Extended level content (15+ additional levels)
 - Online leaderboards and cloud sync

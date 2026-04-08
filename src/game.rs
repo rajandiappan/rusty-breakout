@@ -1,10 +1,13 @@
+use crate::achievements::{AchievementId, AchievementManager};
 use crate::constants::*;
-use crate::types::{Ball, PowerUp, PowerUpType, GameState, GamePhase, BrickType};
 use crate::level;
-use crate::settings::{GameSettings, Difficulty};
+use crate::settings::{Difficulty, GameSettings};
+use crate::types::{Ball, BrickType, GamePhase, GameState, PowerUp, PowerUpType};
 use macroquad::prelude::*;
 
 const SETTINGS_PATH: &str = "settings/game.json";
+const HIGH_SCORE_PATH: &str = "settings/high_score.txt";
+const ACHIEVEMENTS_PATH: &str = "settings/achievements.json";
 
 pub struct Game {
     pub state: GameState,
@@ -18,7 +21,9 @@ impl Game {
             state: GameState::new(),
             settings,
         };
+        game.load_progress();
         game.apply_settings();
+        game.track_theme_unlock();
         game.start_menu();
         game
     }
@@ -28,12 +33,146 @@ impl Game {
         self.state.current_theme = self.settings.theme;
         self.state.theme_colors = crate::themes::get_theme_colors(self.state.current_theme);
         self.state.audio.volume = self.settings.sfx_volume;
-        self.state.audio.set_music_volume(self.settings.music_volume);
+        self.state
+            .audio
+            .set_music_volume(self.settings.music_volume);
+        self.state.seen_themes = self.settings.seen_themes.iter().copied().collect();
+        self.state.seen_themes.insert(self.state.current_theme);
     }
 
     pub fn save_settings(&mut self) {
         self.settings.clamp_volumes();
         let _ = self.settings.save_to_file(SETTINGS_PATH);
+    }
+
+    fn load_progress(&mut self) {
+        self.state.high_score = crate::persistence::load_high_score(HIGH_SCORE_PATH).unwrap_or(0);
+        self.state.achievements = AchievementManager::load_from_file(ACHIEVEMENTS_PATH)
+            .unwrap_or_else(|_| AchievementManager::new());
+    }
+
+    fn save_achievements(&self) {
+        let _ = self.state.achievements.save_to_file(ACHIEVEMENTS_PATH);
+    }
+
+    fn record_high_score(&mut self) {
+        if self.state.score > self.state.high_score {
+            self.state.high_score = self.state.score;
+            let _ = crate::persistence::save_high_score(HIGH_SCORE_PATH, self.state.high_score);
+        }
+    }
+
+    fn add_score(&mut self, amount: u32) {
+        self.state.score += amount;
+        self.record_high_score();
+    }
+
+    fn increment_achievement_progress(&mut self, id: AchievementId, amount: u32) {
+        self.state.achievements.increment_progress(id, amount);
+        self.save_achievements();
+    }
+
+    fn unlock_achievement(&mut self, id: AchievementId) {
+        self.state.achievements.unlock(id);
+        self.save_achievements();
+    }
+
+    fn track_theme_unlock(&mut self) {
+        self.state.seen_themes.insert(self.state.current_theme);
+        if !self
+            .settings
+            .seen_themes
+            .contains(&self.state.current_theme)
+        {
+            self.settings.seen_themes.push(self.state.current_theme);
+            self.save_settings();
+        }
+        if self.state.seen_themes.len() == crate::settings::ThemeType::all_themes().len() {
+            self.unlock_achievement(AchievementId::ThemeCollector);
+        }
+    }
+
+    fn track_powerup_pickup_achievements(&mut self) {
+        self.state.powerups_collected_this_level += 1;
+        if self.state.powerups_collected_this_level >= 5 {
+            self.unlock_achievement(AchievementId::PowerUpHoarder);
+        }
+
+        let now = self.state.frame_count;
+        let window_start = now.saturating_sub(5 * FPS as usize);
+        self.state.recent_powerup_frames.push_back(now);
+        while self
+            .state
+            .recent_powerup_frames
+            .front()
+            .is_some_and(|frame| *frame < window_start)
+        {
+            self.state.recent_powerup_frames.pop_front();
+        }
+        if self.state.recent_powerup_frames.len() >= 3 {
+            self.unlock_achievement(AchievementId::LuckyBreak);
+        }
+    }
+
+    fn track_brick_destroy_achievement(&mut self) {
+        self.state.bricks_destroyed_this_level += 1;
+        if self.state.bricks_destroyed_this_level >= 100 {
+            self.unlock_achievement(AchievementId::Sharpshooter);
+        }
+    }
+
+    fn track_brick_destruction_batch(&mut self, count: u32) {
+        for _ in 0..count {
+            self.track_brick_destroy_achievement();
+        }
+    }
+
+    fn track_multiball_achievement(&mut self) {
+        let active_balls = self.state.balls.iter().filter(|ball| ball.active).count();
+        if active_balls >= MAX_BALLS {
+            self.state.three_ball_streak_frames += 1;
+            if self.state.three_ball_streak_frames >= 30 * FPS as usize {
+                self.unlock_achievement(AchievementId::MultiBallMaster);
+            }
+        } else {
+            self.state.three_ball_streak_frames = 0;
+        }
+    }
+
+    fn reset_level_tracking(&mut self) {
+        self.state.level_start_frame = self.state.frame_count;
+        self.state.bricks_destroyed_this_level = 0;
+        self.state.powerups_collected_this_level = 0;
+        self.state.three_ball_streak_frames = 0;
+        self.state.recent_powerup_frames.clear();
+    }
+
+    fn check_level_completion_achievements(&mut self) {
+        let level_frames = self
+            .state
+            .frame_count
+            .saturating_sub(self.state.level_start_frame);
+        if level_frames <= 60 * FPS as usize {
+            self.unlock_achievement(AchievementId::RapidFire);
+        }
+    }
+
+    fn check_victory_achievements(&mut self) {
+        if self.state.lives == self.state.run_starting_lives {
+            self.unlock_achievement(AchievementId::PerfectClear);
+        }
+
+        let run_frames = self
+            .state
+            .frame_count
+            .saturating_sub(self.state.game_start_frame);
+        if run_frames <= 5 * 60 * FPS as usize {
+            self.unlock_achievement(AchievementId::Speedrunner);
+        }
+
+        if self.state.difficulty == Difficulty::Hard {
+            self.unlock_achievement(AchievementId::HardcoreChampion);
+        }
     }
 
     pub fn start_menu(&mut self) {
@@ -47,6 +186,8 @@ impl Game {
     pub fn start_game(&mut self) {
         self.state.phase = GamePhase::Playing;
         self.state.audio.start_music();
+        self.state.game_start_frame = self.state.frame_count;
+        self.state.run_starting_lives = self.state.difficulty.starting_lives();
         self.load_level(self.state.level);
     }
 
@@ -83,12 +224,13 @@ impl Game {
         self.state.paddle.is_shrunk = false;
         self.state.paddle.shield_count = 0;
         self.state.paddle.magnetized_ball = None;
+        self.reset_level_tracking();
     }
 
     pub async fn update(&mut self) {
         // Update gamepad state first (captures all input events)
         self.state.gamepad.update();
-        
+
         self.state.frame_count += 1;
 
         match self.state.phase {
@@ -112,7 +254,7 @@ impl Game {
         if is_key_pressed(KeyCode::Space) {
             self.start_game();
         }
-        
+
         // Gamepad: A button (South) or Start button to start
         if self.state.gamepad.is_south_pressed() || self.state.gamepad.is_start_pressed() {
             self.start_game();
@@ -130,6 +272,7 @@ impl Game {
         if is_key_pressed(KeyCode::T) {
             self.state.current_theme = self.state.current_theme.next();
             self.state.theme_colors = crate::themes::get_theme_colors(self.state.current_theme);
+            self.track_theme_unlock();
             self.settings.theme = self.state.current_theme;
             self.save_settings();
         }
@@ -222,6 +365,8 @@ impl Game {
 
         // Check win/lose conditions
         self.check_game_conditions();
+
+        self.track_multiball_achievement();
     }
 
     fn update_paddle(&mut self) {
@@ -265,10 +410,11 @@ impl Game {
                 ball.y = PADDLE_Y - PADDLE_HEIGHT;
                 ball.vx = 0.0;
                 ball.vy = 0.0;
-                
+
                 // Release on spacebar or gamepad A button
-                let release = is_key_pressed(KeyCode::Space) || self.state.gamepad.is_south_pressed();
-                
+                let release =
+                    is_key_pressed(KeyCode::Space) || self.state.gamepad.is_south_pressed();
+
                 if release {
                     ball.is_magnetized = false;
                     ball.vx = 2.0;
@@ -278,7 +424,12 @@ impl Game {
             }
 
             // Apply slow time power-up effect
-            let mut slow_time_multiplier = if self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::SlowTime) {
+            let mut slow_time_multiplier = if self
+                .state
+                .active_powerups
+                .iter()
+                .any(|p| p.power_type == PowerUpType::SlowTime)
+            {
                 0.5
             } else {
                 1.0
@@ -296,7 +447,9 @@ impl Game {
 
             // Emit ball trail particles
             if self.state.frame_count % 3 == 0 {
-                self.state.particle_system.ball_trail(ball.x, ball.y, self.state.theme_colors.ball);
+                self.state
+                    .particle_system
+                    .ball_trail(ball.x, ball.y, self.state.theme_colors.ball);
             }
 
             // Wall collisions
@@ -317,9 +470,15 @@ impl Game {
         }
 
         // [NEW] Handle laser firing
-        if self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::Laser) {
+        if self
+            .state
+            .active_powerups
+            .iter()
+            .any(|p| p.power_type == PowerUpType::Laser)
+        {
             // Fire laser from paddle every frame when active
-            if self.state.frame_count.is_multiple_of(6) {  // Fire every 6 frames (10 shots/sec)
+            if self.state.frame_count.is_multiple_of(6) {
+                // Fire every 6 frames (10 shots/sec)
                 self.state.laser_shots.push(crate::types::LaserShot {
                     x: self.state.paddle.x + self.state.paddle.width / 2.0 - LASER_WIDTH / 2.0,
                     y: PADDLE_Y - LASER_HEIGHT,
@@ -332,7 +491,7 @@ impl Game {
 
         // Remove inactive balls
         self.state.balls.retain(|b| b.active);
-        
+
         // Only lose 1 life when ALL balls are gone
         if self.state.balls.is_empty() {
             self.state.lives -= 1;
@@ -344,6 +503,8 @@ impl Game {
             self.state.paddle.shield_count = 0;
 
             if self.state.lives == 0 {
+                self.record_high_score();
+                self.save_achievements();
                 self.state.phase = GamePhase::GameOver;
             } else {
                 // Reset with 1 ball
@@ -383,7 +544,12 @@ impl Game {
         }
 
         // Magnetize expiration: release magnetized balls when duration ends
-        if self.state.active_powerups.iter().any(|p| p.power_type == PowerUpType::Magnetize && p.remaining_frames == 0) {
+        if self
+            .state
+            .active_powerups
+            .iter()
+            .any(|p| p.power_type == PowerUpType::Magnetize && p.remaining_frames == 0)
+        {
             for ball in &mut self.state.balls {
                 if ball.is_magnetized {
                     ball.is_magnetized = false;
@@ -395,7 +561,9 @@ impl Game {
         }
 
         // Remove expired power-ups
-        self.state.active_powerups.retain(|p| p.remaining_frames > 0);
+        self.state
+            .active_powerups
+            .retain(|p| p.remaining_frames > 0);
 
         // Handle paddle state - extend is permanent, shrink is also permanent (until extend is collected)
         // Do not auto-reset paddle width here anymore - only happens on level change or power-up collection
@@ -404,12 +572,15 @@ impl Game {
     }
 
     fn check_collisions(&mut self) {
+        let mut pending_score = 0;
+        let mut destroyed_bricks = 0;
+
         // Check ball-paddle collisions
         for ball in &mut self.state.balls {
             if crate::physics::check_ball_paddle_collision(ball, &mut self.state.paddle) {
                 // [NEW] Play paddle hit sound
                 self.state.audio.play_paddle_hit();
-                
+
                 // Emit particles on paddle hit
                 self.state.particle_system.paddle_hit(
                     ball.x,
@@ -428,8 +599,9 @@ impl Game {
             for ball in &mut self.state.balls {
                 if crate::physics::check_ball_brick_collision(ball, brick) {
                     bricks_to_destroy.push(idx);
-                    self.state.score += BRICK_POINTS;
-                    
+                    pending_score += BRICK_POINTS;
+                    destroyed_bricks += 1;
+
                     // Add floating score popup
                     self.state.score_popups.push(crate::types::ScorePopup {
                         x: brick.x + BRICK_WIDTH / 2.0,
@@ -451,26 +623,28 @@ impl Game {
 
                     // Spawn power-up with difficulty-adjusted chance
                     let spawn_chance = self.state.difficulty.powerup_spawn_chance();
-                    let spawn_rand = ((self.state.frame_count as f32 * 12.347 + idx as f32 * 53.891) % 100.0) / 100.0;
+                    let spawn_rand =
+                        ((self.state.frame_count as f32 * 12.347 + idx as f32 * 53.891) % 100.0)
+                            / 100.0;
                     if spawn_rand < spawn_chance {
                         let power_type = match (self.state.frame_count + idx) % 8 {
                             0 => PowerUpType::MultiBall,
                             1 => PowerUpType::PaddleExtend,
                             2 => PowerUpType::SlowTime,
-                            3 => PowerUpType::Laser,      // [NEW]
-                            4 => PowerUpType::Shield,     // [NEW]
-                            5 => PowerUpType::Bomb,       // [NEW]
-                            6 => PowerUpType::Magnetize,  // [NEW]
+                            3 => PowerUpType::Laser,        // [NEW]
+                            4 => PowerUpType::Shield,       // [NEW]
+                            5 => PowerUpType::Bomb,         // [NEW]
+                            6 => PowerUpType::Magnetize,    // [NEW]
                             _ => PowerUpType::PaddleShrink, // [NEW] Power-down
                         };
-                        
+
                         // Emit particles for power-up spawn
                         self.state.particle_system.power_up_spawn(
                             brick.x + BRICK_WIDTH / 2.0,
                             brick.y,
                             self.state.theme_colors.accent,
                         );
-                        
+
                         self.state.powerups.push(PowerUp {
                             x: brick.x + BRICK_WIDTH / 2.0,
                             y: brick.y,
@@ -485,42 +659,43 @@ impl Game {
 
         for idx in bricks_to_destroy {
             let brick = &self.state.bricks[idx];
-            
+
             // Handle Exploding brick chain reaction
             if brick.brick_type == BrickType::Exploding {
                 let bx = brick.x + BRICK_WIDTH / 2.0;
                 let by = brick.y + BRICK_HEIGHT / 2.0;
                 let mut chain_count = 0;
-                
+
                 for (explode_idx, other_brick) in self.state.bricks.iter_mut().enumerate() {
                     if !other_brick.active || explode_idx == idx {
                         continue;
                     }
-                    
+
                     let ox = other_brick.x + BRICK_WIDTH / 2.0;
                     let oy = other_brick.y + BRICK_HEIGHT / 2.0;
                     let dist = ((bx - ox).powi(2) + (by - oy).powi(2)).sqrt();
-                    
+
                     if dist < EXPLODING_RADIUS {
                         other_brick.active = false;
-                        self.state.score += BRICK_POINTS;
+                        pending_score += BRICK_POINTS;
+                        destroyed_bricks += 1;
                         chain_count += 1;
-                        
-                        self.state.particle_system.brick_destruction(
-                            ox, oy, other_brick.color,
-                        );
+
+                        self.state
+                            .particle_system
+                            .brick_destruction(ox, oy, other_brick.color);
                     }
                 }
-                
+
                 // Screen flash on chain reaction
                 if chain_count > 2 {
                     self.state.screen_flash = 0.3;
                 }
             }
-            
+
             self.state.bricks[idx].active = false;
         }
-        
+
         // Update Regenerating bricks (respawn after delay)
         for brick in &mut self.state.bricks {
             if !brick.active && brick.brick_type == BrickType::Regenerating {
@@ -542,7 +717,7 @@ impl Game {
             }
             if crate::physics::check_powerup_pickup(powerup, &self.state.paddle) {
                 powerup.active = false;
-                
+
                 // [UPDATED] Play power-up or power-down sound based on type
                 match powerup.power_type {
                     PowerUpType::PaddleShrink => {
@@ -552,19 +727,20 @@ impl Game {
                         self.state.audio.play_powerup_pickup(); // Regular power-up sound
                     }
                 }
-                
+
                 // Emit particles for power-up pickup
                 self.state.particle_system.power_up_pickup(
                     powerup.x,
                     powerup.y,
                     self.state.theme_colors.primary,
                 );
-                
+
                 powerups_to_apply.push(powerup.power_type);
             }
         }
-        
+
         for power_type in powerups_to_apply {
+            self.track_powerup_pickup_achievements();
             self.apply_powerup(power_type);
         }
 
@@ -597,7 +773,8 @@ impl Game {
                     && laser.y + laser.height > brick.y
                 {
                     brick.active = false;
-                    self.state.score += BRICK_POINTS;
+                    pending_score += BRICK_POINTS;
+                    destroyed_bricks += 1;
                     laser.active = false;
                     lasers_to_remove.push(laser_idx);
 
@@ -621,8 +798,9 @@ impl Game {
                     // Ball hit the shield - restore it and decrement shield count
                     ball.active = true;
                     ball.vy = -4.0;
-                    self.state.paddle.shield_count = self.state.paddle.shield_count.saturating_sub(1);
-                    
+                    self.state.paddle.shield_count =
+                        self.state.paddle.shield_count.saturating_sub(1);
+
                     // Emit particles
                     self.state.particle_system.power_up_pickup(
                         ball.x,
@@ -632,6 +810,13 @@ impl Game {
                     break;
                 }
             }
+        }
+
+        if pending_score > 0 {
+            self.add_score(pending_score);
+        }
+        if destroyed_bricks > 0 {
+            self.track_brick_destruction_batch(destroyed_bricks);
         }
     }
 
@@ -651,38 +836,51 @@ impl Game {
                         self.state.balls.push(ball2);
                     }
                 }
-                self.state.achievements.increment_progress(crate::achievements::AchievementId::MultiBallMaster, 1);
             }
             PowerUpType::PaddleExtend => {
                 self.state.paddle.is_extended = true;
                 // Extended width is 1.5x the normal width for this difficulty
                 self.state.paddle.width = self.state.paddle.extended_width;
                 self.state.paddle.is_shrunk = false; // Cancel shrink if active
-                // [CHANGED] No longer add to active_powerups - extend is PERMANENT until next level or shrink
-                self.state.achievements.increment_progress(crate::achievements::AchievementId::PowerUpHoarder, 1);
+                                                     // [CHANGED] No longer add to active_powerups - extend is PERMANENT until next level or shrink
             }
             PowerUpType::SlowTime => {
                 // Stacking policy: Extend existing slow time duration if active; otherwise start a new one.
-                if let Some(active) = self.state.active_powerups.iter_mut().find(|p| p.power_type == PowerUpType::SlowTime) {
-                    active.remaining_frames = active.remaining_frames.saturating_add(POWERUP_DURATION);
+                if let Some(active) = self
+                    .state
+                    .active_powerups
+                    .iter_mut()
+                    .find(|p| p.power_type == PowerUpType::SlowTime)
+                {
+                    active.remaining_frames =
+                        active.remaining_frames.saturating_add(POWERUP_DURATION);
                 } else {
-                    self.state.active_powerups.push(crate::types::ActivePowerUp {
-                        power_type,
-                        remaining_frames: POWERUP_DURATION,
-                    });
+                    self.state
+                        .active_powerups
+                        .push(crate::types::ActivePowerUp {
+                            power_type,
+                            remaining_frames: POWERUP_DURATION,
+                        });
                 }
-                self.state.achievements.increment_progress(crate::achievements::AchievementId::TimeBender, 1);
+                self.increment_achievement_progress(AchievementId::TimeBender, 1);
             }
             PowerUpType::Laser => {
                 // [NEW] Activate laser mode
                 // Stacking policy: Refresh existing laser duration if active; otherwise start a new one.
-                if let Some(active) = self.state.active_powerups.iter_mut().find(|p| p.power_type == PowerUpType::Laser) {
+                if let Some(active) = self
+                    .state
+                    .active_powerups
+                    .iter_mut()
+                    .find(|p| p.power_type == PowerUpType::Laser)
+                {
                     active.remaining_frames = POWERUP_LASER_DURATION;
                 } else {
-                    self.state.active_powerups.push(crate::types::ActivePowerUp {
-                        power_type,
-                        remaining_frames: POWERUP_LASER_DURATION,
-                    });
+                    self.state
+                        .active_powerups
+                        .push(crate::types::ActivePowerUp {
+                            power_type,
+                            remaining_frames: POWERUP_LASER_DURATION,
+                        });
                 }
             }
             PowerUpType::Shield => {
@@ -698,13 +896,22 @@ impl Game {
                 // Stacking policy: Extend existing magnetize duration if active; otherwise start a new one.
                 if !self.state.balls.is_empty() {
                     self.state.balls[0].is_magnetized = true;
-                    if let Some(active) = self.state.active_powerups.iter_mut().find(|p| p.power_type == PowerUpType::Magnetize) {
-                        active.remaining_frames = active.remaining_frames.saturating_add(POWERUP_MAGNETIZE_DURATION);
+                    if let Some(active) = self
+                        .state
+                        .active_powerups
+                        .iter_mut()
+                        .find(|p| p.power_type == PowerUpType::Magnetize)
+                    {
+                        active.remaining_frames = active
+                            .remaining_frames
+                            .saturating_add(POWERUP_MAGNETIZE_DURATION);
                     } else {
-                        self.state.active_powerups.push(crate::types::ActivePowerUp {
-                            power_type,
-                            remaining_frames: POWERUP_MAGNETIZE_DURATION,
-                        });
+                        self.state
+                            .active_powerups
+                            .push(crate::types::ActivePowerUp {
+                                power_type,
+                                remaining_frames: POWERUP_MAGNETIZE_DURATION,
+                            });
                     }
                 }
             }
@@ -714,7 +921,6 @@ impl Game {
                 self.state.paddle.width = self.state.paddle.shrunk_width;
                 self.state.paddle.is_extended = false; // Cancel extend if active
                 self.state.audio.play_paddle_shrink(); // [NEW] Play shrink sound
-                self.state.achievements.increment_progress(crate::achievements::AchievementId::PowerUpHoarder, 1);
             }
         }
     }
@@ -723,7 +929,9 @@ impl Game {
         // Destroy all bricks in 3x3 area around paddle position
         let paddle_center_x = self.state.paddle.x + self.state.paddle.width / 2.0;
         let bomb_radius = 90.0; // 3 brick widths
-        
+        let mut destroyed_score = 0;
+        let mut destroyed_bricks = 0;
+
         for brick in &mut self.state.bricks {
             if !brick.active {
                 continue;
@@ -732,17 +940,25 @@ impl Game {
             let brick_center_y = brick.y + BRICK_HEIGHT / 2.0;
             let dx = (brick_center_x - paddle_center_x).abs();
             let dy = (brick_center_y - PADDLE_Y).abs();
-            
+
             // Check if brick is in explosion radius
             if dx < bomb_radius && dy < bomb_radius * 1.5 {
                 brick.active = false;
-                self.state.score += BRICK_POINTS;
+                destroyed_score += BRICK_POINTS;
+                destroyed_bricks += 1;
                 self.state.particle_system.brick_destruction(
                     brick_center_x,
                     brick_center_y,
                     brick.color,
                 );
             }
+        }
+
+        if destroyed_score > 0 {
+            self.add_score(destroyed_score);
+        }
+        if destroyed_bricks > 0 {
+            self.track_brick_destruction_batch(destroyed_bricks);
         }
     }
 
@@ -751,21 +967,21 @@ impl Game {
         let active_bricks = self.state.bricks.iter().filter(|b| b.active).count();
         if active_bricks == 0 {
             self.state.phase = GamePhase::LevelComplete;
-            self.state.score += LEVEL_COMPLETE_BONUS;
+            self.add_score(LEVEL_COMPLETE_BONUS);
             self.state.level_complete_timer = 120; // 2 seconds
-            
+            self.check_level_completion_achievements();
+
             // [NEW] Play level complete sound
             self.state.audio.play_level_complete();
-            
-            // Track level completion for speedrunner achievement
-            self.state.achievements.increment_progress(crate::achievements::AchievementId::Speedrunner, 1);
         }
 
         // Check if no balls left
         if self.state.balls.is_empty() && self.state.phase == GamePhase::Playing {
             self.state.lives = 0;
             self.state.phase = GamePhase::GameOver;
-            
+            self.record_high_score();
+            self.save_achievements();
+
             // Play game over sound and stop music
             self.state.audio.play_game_over();
             self.state.audio.stop_music();
@@ -781,21 +997,15 @@ impl Game {
                 self.state.phase = GamePhase::Playing;
             } else {
                 self.state.phase = GamePhase::Victory;
-                self.state.score += ALL_LEVELS_BONUS;
-                
+                self.add_score(ALL_LEVELS_BONUS);
+
                 // Play victory sound and stop music
                 self.state.audio.play_victory();
                 self.state.audio.stop_music();
-                
-                // Check for PerfectClear (beat all levels without losing a life)
-                if self.state.lives == STARTING_LIVES {
-                    // Assuming we started with 3 lives
-                    self.state.achievements.unlock(crate::achievements::AchievementId::PerfectClear);
-                }
-                
-                if self.state.score > self.state.high_score {
-                    self.state.high_score = self.state.score;
-                }
+
+                self.check_victory_achievements();
+                self.record_high_score();
+                self.save_achievements();
             }
         }
     }
